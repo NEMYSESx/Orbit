@@ -52,17 +52,17 @@ async def retrieve_and_answer(
             expand_with_model_knowledge=request.expand_with_model_knowledge,
             filter_conditions=request.filter_conditions
         )
-        
-        documents = [
-            Document(
-                id=doc["id"],
-                text=doc["text"],
-                score=doc["score"],
-                metadata=doc["metadata"]
-            )
-            for doc in result.get("retrieved_documents", [])
-        ]
-        
+        documents = []
+        retrieved_documents = result.get("retrieved_documents", [])
+        for doc in retrieved_documents:
+            document = Document(
+            id=doc["id"],
+            text=doc["text"],
+            score=doc["score"],
+            metadata=doc["metadata"]
+        )
+        documents.append(document)
+            
         return {
             "question": result["question"],
             "answer": result["answer"],

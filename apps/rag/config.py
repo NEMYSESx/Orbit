@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     QDRANT_API_KEY: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.I_YX0wNGh_QrZ9A8gjGs8tCgA1a-AKvQ1vyXVJ_QVrs"
     DEFAULT_COLLECTION_NAME: str = "documents"
     DEFAULT_EMBEDDING_MODEL: str = "intfloat/multilingual-e5-large-instruct"
-    DEFAULT_LLM_MODEL: str = "gemini-1.5-pro"
+    DEFAULT_LLM_MODEL: str = "gemini-2.5-pro-preview-03-25"
     GEMINI_API_KEY: str = os.environ.get("GEMINI_API_KEY", "")
     CONNECTION_TIMEOUT: int = 15
     DEFAULT_CHUNK_SIZE: int = 500

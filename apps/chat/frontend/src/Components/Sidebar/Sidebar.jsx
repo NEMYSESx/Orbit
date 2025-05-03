@@ -5,7 +5,7 @@ import { Context } from "../../Context/Context";
 
 const Sidebar = () => {
   const {
-    updateSidebar2,
+    // updateSidebar2,
     setUpdateSidebar2,
     updateSidebar,
     setActiveConversationId,

@@ -33,7 +33,7 @@ class AgenticChunker:
     how to split documents in a context-aware manner.
     """
     
-    def __init__(self, gemini_api_key=None, model_name='gemini-1.5-pro'):
+    def __init__(self, gemini_api_key=None, model_name='gemini-2.5-pro-preview-03-25'):
         """
         Initialize the agentic chunker with Gemini LLM.
         
@@ -461,7 +461,7 @@ def search_with_gemini(
                 rerank = False
         
         if rerank:
-            model = genai.GenerativeModel('gemini-1.5-pro')
+            model = genai.GenerativeModel('gemini-2.5-pro-preview-03-25')
             context_list = []
             for idx, result in enumerate(search_results):
                 text = result.payload.get('text', '')
@@ -577,7 +577,7 @@ def retrieve_and_answer_expanded(
     
     if not search_results:
         if expand_with_model_knowledge:
-            model = genai.GenerativeModel('gemini-1.5-pro')
+            model = genai.GenerativeModel('gemini-2.5-pro-preview-03-25')
             prompt = f"Please answer this question using your knowledge: {query_text}"
             response = model.generate_content(prompt)
             return response.text
@@ -589,7 +589,7 @@ def retrieve_and_answer_expanded(
         for i, result in enumerate(search_results)
     ])
     
-    model = genai.GenerativeModel('gemini-1.5-pro')
+    model = genai.GenerativeModel('gemini-2.5-pro-preview-03-25')
     
     if expand_with_model_knowledge:
         prompt = f"""

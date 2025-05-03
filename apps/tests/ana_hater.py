@@ -40,7 +40,7 @@ class AgenticChunker:
     how to split documents in a context-aware manner.
     """
     
-    def __init__(self, gemini_api_key=None, model_name='gemini-1.5-pro'):
+    def __init__(self, gemini_api_key=None, model_name='gemini-2.5-pro-preview-03-25'):
         """
         Initialize the agentic chunker with Gemini LLM.
         
@@ -254,7 +254,7 @@ class QdrantRAGManager:
         collection_name="ana_collection",
         embedding_model_name='intfloat/multilingual-e5-large-instruct',
         gemini_api_key=None,
-        gemini_model_name='gemini-1.5-pro',
+        gemini_model_name='gemini-2.5-pro-preview-03-25',
         connection_timeout=10
     ):
         """
@@ -645,7 +645,7 @@ class ConfigurationRequest(BaseModel):
     port: int = 6333
     collection_name: str = "ana_collection"
     embedding_model_name: str = "intfloat/multilingual-e5-large-instruct"
-    gemini_model_name: str = "gemini-1.5-pro"
+    gemini_model_name: str = "gemini-2.5-pro-preview-03-25"
     connection_timeout: int = 10
 
 # Initialize the RAG Manager

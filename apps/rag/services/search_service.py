@@ -127,7 +127,7 @@ class SearchService:
                 print("Warning: Gemini API key not provided. Skipping reranking.")
                 return search_results[:limit]
         
-        model = genai.GenerativeModel('gemini-1.5-pro')
+        model = genai.GenerativeModel('gemini-2.5-pro-preview-03-25')
         
         context_list = []
         for idx, result in enumerate(search_results):

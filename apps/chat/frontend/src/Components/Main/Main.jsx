@@ -5,13 +5,13 @@ import Card from "./Card";
 import { Context } from "../../Context/Context";
 
 const Main = () => {
-  const theme = localStorage.getItem('theme');
+  const theme = localStorage.getItem("theme");
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
 
   useEffect(() => {
-    if (theme === 'dark') {
+    if (theme === "dark") {
       document.documentElement.classList.add("dark-mode");
       setIsDarkMode(true);
     } else {
@@ -79,10 +79,10 @@ const Main = () => {
     setIsDarkMode((prevMode) => {
       const newMode = !prevMode;
       if (newMode) {
-        localStorage.setItem('theme', 'dark');
+        localStorage.setItem("theme", "dark");
         document.documentElement.classList.add("dark-mode");
       } else {
-        localStorage.setItem('theme', 'light');
+        localStorage.setItem("theme", "light");
         document.documentElement.classList.remove("dark-mode");
       }
       return newMode;
@@ -107,8 +107,7 @@ const Main = () => {
         </div>{" "}
       </div>
       <div className="main_container">
-        {!conversation.messages ||
-        conversation.messages.length === 0 ? (
+        {!conversation.messages || conversation.messages.length === 0 ? (
           <>
             <div className="greet">
               <p>
@@ -117,9 +116,9 @@ const Main = () => {
               <p className="greetMsg">How can I help you today?</p>
             </div>
             <div className="cards">
-              {cardText.map((text, i) => (
+              {/* {cardText.map((text, i) => (
                 <Card key={i} cardText={text} index={i} />
-              ))}
+              ))} */}
             </div>
           </>
         ) : (
@@ -152,61 +151,71 @@ const Main = () => {
           ))
         )}
       </div>
-      <div className={`main_bottom ${file && 'main_bottom_with_file'}`}>
+      <div className={`main_bottom ${file && "main_bottom_with_file"}`}>
         <div className="search_box">
-          {file &&<div className="file_container">
-            {file && <img className="new_file" src={assets.file} alt="" />}
-            {file && <p className="file_name">{file.name}</p>}
-            <img src={assets.cross}  onClick={() => {
-              setFile(null);
-            }}/>
-          </div>}
+          {file && (
+            <div className="file_container">
+              {file && <img className="new_file" src={assets.file} alt="" />}
+              {file && <p className="file_name">{file.name}</p>}
+              <img
+                src={assets.cross}
+                onClick={() => {
+                  setFile(null);
+                }}
+              />
+            </div>
+          )}
           <div className="tempo">
-          <input
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && input.trim() && allowSending) {
-                onSent(input, file);
-                setFile(null)
-                scrollToBottom();
-              }
-            }}
-            value={input}
-            type="text"
-            placeholder="Ask anything"
-          />
-          <div>
             <input
-              type="file"
-              onChange={(e) => {
-                setFile(e.target.files[0]);
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && input.trim() && allowSending) {
+                  onSent(input, file);
+                  setFile(null);
+                  scrollToBottom();
+                }
               }}
-              style={{ display: "none" }}
-              id="fileUpload"
+              value={input}
+              type="text"
+              placeholder="Ask anything"
             />
+            <div>
+              <input
+                type="file"
+                onChange={(e) => {
+                  setFile(e.target.files[0]);
+                }}
+                style={{ display: "none" }}
+                id="fileUpload"
+              />
               <img
                 src={isListening ? assets.mic_active_icon : assets.mic_icon}
                 className="utility_icon"
                 alt="Mic"
                 onClick={isListening ? stopListening : startListening}
               />
-            <label className="file_label" htmlFor="fileUpload">
-              <img className="file_icon utility_icon" src={assets.add_file} alt="" />
-            </label>
-            <img
-              onClick={() => {
-                if (stopIcon) {
-                  stopReply();
-                } else if (input.trim() && allowSending) {
-                  onSent(input, file);
-                  setFile(null)
-                  scrollToBottom();
-                }
-              }}
-              src={stopIcon ? assets.stop_button : assets.send_icon}
-              alt="" className="utility_icon"
-            />
-          </div>
+              <label className="file_label" htmlFor="fileUpload">
+                <img
+                  className="file_icon utility_icon"
+                  src={assets.add_file}
+                  alt=""
+                />
+              </label>
+              <img
+                onClick={() => {
+                  if (stopIcon) {
+                    stopReply();
+                  } else if (input.trim() && allowSending) {
+                    onSent(input, file);
+                    setFile(null);
+                    scrollToBottom();
+                  }
+                }}
+                src={stopIcon ? assets.stop_button : assets.send_icon}
+                alt=""
+                className="utility_icon"
+              />
+            </div>
           </div>
         </div>
       </div>

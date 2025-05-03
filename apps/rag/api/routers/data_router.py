@@ -41,15 +41,14 @@ async def push_data(
     """
     Push data to the vector database.
     """
-    data = [
-        {
+    data = []
+    for i, item in enumerate(request.data):
+        entry = {
             "id": item.id if item.id is not None else i,
             "text": item.text,
             "metadata": item.metadata
         }
-        for i, item in enumerate(request.data)
-    ]
-    
+    data.append(entry)
     result = data_service.push_data(
         data=data,
         collection_name=request.collection_name,
@@ -62,6 +61,6 @@ async def push_data(
         raise HTTPException(status_code=500, detail="Failed to push data")
     
     return {
-        **result,
+        **result, #unpacking dictonary similar to the destructruing and then combinging it with collection name
         "collection_name": request.collection_name
     }

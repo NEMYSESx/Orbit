@@ -1,0 +1,59 @@
+2025-05-02 16:19:13.667 NOTICE: NTP synchronization down with server ntp.hpe.com
+2025-05-02 16:19:19.666 NOTICE: NTP synchronization flapping with server timeserver.local
+2025-05-02 16:19:25.667 ERROR: DNS resolution failed for headnode - E1001
+2025-05-02 16:19:31.667 INFO: Interface bond0 reconfigured at 2025-05-02 16:19:31.667
+2025-05-02 16:19:37.667 WARNING: High packet loss on ens256: 84%
+2025-05-02 16:19:43.667 INFO: Interface ens256 degraded at 2025-05-02 16:19:43.667
+2025-05-02 16:19:49.666 NOTICE: NTP synchronization flapping with server ntp.hpe.com
+2025-05-02 16:19:55.667 INFO: Interface ib0 flapping at 2025-05-02 16:19:55.667
+2025-05-02 16:20:01.667 WARNING: High packet loss on bond0: 86%
+2025-05-02 16:20:07.667 ERROR: Cannot establish connection to compute01:9833 - timeout exceeded
+2025-05-02 16:20:13.667 WARNING: High packet loss on ib0: 82%
+2025-05-02 16:20:19.666 NOTICE: NTP synchronization flapping with server 1.pool.ntp.org
+2025-05-02 16:20:25.667 ERROR: Cannot establish connection to storage01:55472 - insufficient permissions
+2025-05-02 16:20:31.667 NOTICE: NTP synchronization down with server 1.pool.ntp.org
+2025-05-02 16:20:37.667 WARNING: High packet loss on eth0: 99%
+2025-05-02 16:20:43.667 NOTICE: NTP synchronization up with server 0.pool.ntp.org
+2025-05-02 16:20:49.667 INFO: Interface ens256 degraded at 2025-05-02 16:20:49.667
+2025-05-02 16:20:55.667 NOTICE: NTP synchronization reconfigured with server 0.pool.ntp.org
+2025-05-02 16:21:01.667 ERROR: Cannot establish connection to compute01:40411 - insufficient permissions
+2025-05-02 16:21:07.666 WARNING: High packet loss on ib0: 96%
+2025-05-02 16:21:13.667 ERROR: Cannot establish connection to login01:28151 - timeout exceeded
+2025-05-02 16:21:19.667 NOTICE: NTP synchronization down with server 1.pool.ntp.org
+2025-05-02 16:21:25.666 ERROR: Cannot establish connection to headnode:25434 - dependency failed
+2025-05-02 16:21:31.666 ERROR: DNS resolution failed for storage01 - E1003
+2025-05-02 16:21:37.667 INFO: Interface ens192 reconfigured at 2025-05-02 16:21:37.667
+2025-05-02 16:21:43.667 ERROR: DNS resolution failed for headnode - E1005
+2025-05-02 16:21:49.666 WARNING: High packet loss on ens192: 92%
+2025-05-02 16:21:55.667 INFO: Interface eth0 degraded at 2025-05-02 16:21:55.667
+2025-05-02 16:22:01.667 ERROR: Cannot establish connection to compute01:14388 - resource unavailable
+2025-05-02 16:22:07.667 NOTICE: NTP synchronization reconfigured with server 1.pool.ntp.org
+2025-05-02 16:22:13.667 ERROR: DNS resolution failed for headnode - E1004
+2025-05-02 16:22:19.667 WARNING: High packet loss on eth1: 98%
+2025-05-02 16:22:25.666 WARNING: High packet loss on eth0: 89%
+2025-05-02 16:22:31.666 WARNING: High packet loss on ens192: 95%
+2025-05-02 16:22:37.667 NOTICE: NTP synchronization up with server 1.pool.ntp.org
+2025-05-02 16:22:43.666 ERROR: Cannot establish connection to compute02:38735 - timeout exceeded
+2025-05-02 16:22:49.667 ERROR: Cannot establish connection to mgmt01:7219 - dependency failed
+2025-05-02 16:22:55.667 ERROR: DNS resolution failed for compute02 - E1004
+2025-05-02 16:23:01.667 WARNING: High packet loss on eth0: 86%
+2025-05-02 16:23:07.667 INFO: Interface eth1 reconfigured at 2025-05-02 16:23:07.667
+2025-05-02 16:23:13.667 ERROR: Cannot establish connection to compute02:16878 - invalid configuration
+2025-05-02 16:23:19.667 WARNING: High packet loss on ens256: 99%
+2025-05-02 16:23:25.667 ERROR: DNS resolution failed for headnode - E1003
+2025-05-02 16:23:31.667 INFO: Interface eth1 reconfigured at 2025-05-02 16:23:31.667
+2025-05-02 16:23:37.667 WARNING: High packet loss on eth1: 99%
+2025-05-02 16:23:43.667 INFO: Interface bond0 up at 2025-05-02 16:23:43.667
+2025-05-02 16:23:49.667 WARNING: High packet loss on eth0: 95%
+2025-05-02 16:23:55.667 WARNING: High packet loss on eth0: 99%
+2025-05-02 16:24:01.667 ERROR: DNS resolution failed for storage01 - E1003
+2025-05-02 16:24:07.666 INFO: Interface ens192 flapping at 2025-05-02 16:24:07.666
+2025-05-02 16:24:13.667 INFO: Interface bond0 flapping at 2025-05-02 16:24:13.667
+2025-05-02 16:24:19.666 NOTICE: NTP synchronization reconfigured with server 0.pool.ntp.org
+2025-05-02 16:24:25.667 WARNING: High packet loss on ens192: 95%
+2025-05-02 16:24:31.666 WARNING: High packet loss on ib0: 95%
+2025-05-02 16:24:37.667 INFO: Interface ens192 reconfigured at 2025-05-02 16:24:37.667
+2025-05-02 16:24:43.667 ERROR: Cannot establish connection to mgmt01:51516 - insufficient permissions
+2025-05-02 16:24:49.667 ERROR: DNS resolution failed for compute02 - E1003
+2025-05-02 16:24:55.667 ERROR: Cannot establish connection to login01:19568 - insufficient permissions
+2025-05-02 16:25:01.667 ERROR: DNS resolution failed for storage01 - E1005
