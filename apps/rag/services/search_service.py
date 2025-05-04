@@ -4,7 +4,7 @@ import textwrap
 import os
 import sys
 import google.generativeai as genai
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from models.embeddings import EmbeddingModel  
 from models.qdrant_client import QdrantClientWrapper
@@ -14,12 +14,13 @@ sys.path.insert(0, parent_dir)
 from config import settings
 
 class SearchService:
-    """Service for searching data in Qdrant."""
+    """Service for searching data in Qdrant with intelligent topic selection."""
     
     def __init__(
         self,
         qdrant_client: QdrantClientWrapper = None,
-        embedding_model: EmbeddingModel = None
+        embedding_model: EmbeddingModel = None,
+        gemini_api_key: Optional[str] = None
     ):
         """
         Initialize the search service.
@@ -27,34 +28,163 @@ class SearchService:
         Args:
             qdrant_client: Qdrant client wrapper
             embedding_model: Embedding model
+            gemini_api_key: API key for Gemini
         """
         self.qdrant_client = qdrant_client or QdrantClientWrapper()
         self.embedding_model = embedding_model or EmbeddingModel()
+        
+        self.gemini_api_key = gemini_api_key or os.environ.get("GEMINI_API_KEY", settings.GEMINI_API_KEY)
+        self.gemini_model = None
+        self._initialize_gemini()
+    
+    def _initialize_gemini(self):
+        """Initialize Gemini model if API key is available."""
+        if self.gemini_api_key:
+            try:
+                genai.configure(api_key=self.gemini_api_key)
+                self.gemini_model = genai.GenerativeModel('gemini-2.5-pro-preview-03-25')
+                print("Initialized Gemini model successfully.")
+            except Exception as e:
+                print(f"Failed to initialize Gemini model: {str(e)}")
+                self.gemini_model = None
+        else:
+            self.gemini_model = None
+            print("Warning: Gemini API key not provided. Topic classification may be limited.")
+            
+    @property
+    def gemini_api_key(self):
+        return self._gemini_api_key
+        
+    @gemini_api_key.setter
+    def gemini_api_key(self, value):
+        """Set the Gemini API key and reinitialize the model if needed."""
+        self._gemini_api_key = value
+        self._initialize_gemini()
+    
+    def _get_available_collections(self) -> List[str]:
+        """
+        Get a list of available collections in Qdrant.
+        
+        Returns:
+            List of collection names
+        """
+        try:
+            collections = self.qdrant_client.list_collections()
+            return collections
+        except Exception as e:
+            print(f"Error retrieving collections: {str(e)}")
+            return [settings.DEFAULT_COLLECTION_NAME]
+    
+    def _identify_topic_collection(self, query_text: str) -> Tuple[str, float]:
+        """
+        Identify the most relevant collection/topic for the given query.
+        
+        Args:
+            query_text: User query text
+            
+        Returns:
+            Tuple of (collection_name, confidence_score)
+        """
+        collections = self._get_available_collections()
+        
+        if self.gemini_model:
+            try:
+                collection_prompt = f"""
+                Given the user query: "{query_text}"
+                
+                Determine which of these document collections would be most relevant:
+                {', '.join(collections)}
+                
+                Return your answer in JSON format like this:
+                {{
+                    "collection": "most_relevant_collection_name",
+                    "confidence": 0.95  # Between 0.0 and 1.0
+                }}
+                """
+                
+                response = self.gemini_model.generate_content(collection_prompt)
+                response_text = response.text
+                
+                json_match = re.search(r'({.*})', response_text.replace('\n', ' '), re.DOTALL)
+                if json_match:
+                    result = json.loads(json_match.group(1))
+                    collection = result.get("collection")
+                    confidence = result.get("confidence", 0.0)
+                    
+                    if collection in collections:
+                        print(f"Topic classifier identified collection: '{collection}' with confidence: {confidence:.2f}")
+                        return collection, confidence
+            
+            except Exception as e:
+                print(f"Error during topic classification: {str(e)}")
+        
+        try:
+            query_vector = self.embedding_model.encode(query_text).tolist()
+            
+            collection_scores = []
+            for collection in collections:
+                collection_embedding = self.embedding_model.encode(f"Documents about {collection}").tolist()
+                similarity = self._calculate_similarity(query_vector, collection_embedding)
+                collection_scores.append((collection, similarity))
+            
+            collection_scores.sort(key=lambda x: x[1], reverse=True)
+            best_collection, score = collection_scores[0]
+            
+            print(f"Vector similarity identified collection: '{best_collection}' with score: {score:.2f}")
+            return best_collection, score
+            
+        except Exception as e:
+            print(f"Error during vector-based topic classification: {str(e)}")
+            return settings.DEFAULT_COLLECTION_NAME, 0.0
+    
+    def _calculate_similarity(self, vec1: List[float], vec2: List[float]) -> float:
+        """
+        Calculate cosine similarity between two vectors.
+        
+        Args:
+            vec1: First vector
+            vec2: Second vector
+            
+        Returns:
+            Similarity score (0.0 to 1.0)
+        """
+        import numpy as np
+        vec1 = np.array(vec1)
+        vec2 = np.array(vec2)
+        return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
     
     def search(
         self, 
         query_text: str,
-        collection_name: str = settings.DEFAULT_COLLECTION_NAME,
+        collection_name: Optional[str] = None,
         limit: int = 5,
-        gemini_api_key: Optional[str] = None,
         rerank: bool = True,
-        filter_conditions: Optional[Dict[str, Any]] = None
+        filter_conditions: Optional[Dict[str, Any]] = None,
+        auto_detect_topic: bool = True
     ) -> List[Any]:
         """
-        Search for documents in Qdrant and optionally rerank with Gemini.
+        Intelligently search for documents in Qdrant with topic detection.
         
         Args:
             query_text: Query text
-            collection_name: Name of the collection to search
+            collection_name: Name of the collection to search (overrides auto detection)
             limit: Maximum number of results to return
-            gemini_api_key: API key for Gemini
             rerank: Whether to use Gemini to rerank results
             filter_conditions: Optional filter conditions for search
+            auto_detect_topic: Whether to automatically detect the topic/collection
             
         Returns:
             List of search results
         """
         try:
+            if not collection_name and auto_detect_topic:
+                collection_name, confidence = self._identify_topic_collection(query_text)
+                
+                if confidence < 0.4:
+                    print(f"Low confidence in topic detection ({confidence:.2f}). Using default collection.")
+                    collection_name = settings.DEFAULT_COLLECTION_NAME
+            
+            collection_name = collection_name or settings.DEFAULT_COLLECTION_NAME
             print(f"\nPerforming search in '{collection_name}' for: '{query_text}'")
             
             query_vector = self.embedding_model.encode(query_text).tolist()
@@ -76,8 +206,7 @@ class SearchService:
                 search_results = self._rerank_with_gemini(
                     search_results,
                     query_text,
-                    limit,
-                    gemini_api_key
+                    limit
                 )
             else:
                 search_results = search_results[:limit]
@@ -102,8 +231,7 @@ class SearchService:
         self, 
         search_results: List[Any], 
         query_text: str, 
-        limit: int,
-        gemini_api_key: Optional[str] = None
+        limit: int
     ) -> List[Any]:
         """
         Rerank search results using Gemini.
@@ -112,22 +240,13 @@ class SearchService:
             search_results: List of search results
             query_text: Original query text
             limit: Maximum number of results to return
-            gemini_api_key: API key for Gemini
             
         Returns:
             Reranked search results
         """
-        if gemini_api_key:
-            genai.configure(api_key=gemini_api_key)
-        else:
-            gemini_api_key = os.environ.get("GEMINI_API_KEY", settings.GEMINI_API_KEY)
-            if gemini_api_key:
-                genai.configure(api_key=gemini_api_key)
-            else:
-                print("Warning: Gemini API key not provided. Skipping reranking.")
-                return search_results[:limit]
-        
-        model = genai.GenerativeModel('gemini-2.5-pro-preview-03-25')
+        if not self.gemini_model:
+            print("Warning: Gemini model not configured. Skipping reranking.")
+            return search_results[:limit]
         
         context_list = []
         for idx, result in enumerate(search_results):
@@ -157,7 +276,7 @@ class SearchService:
         """
         
         try:
-            rerank_response = model.generate_content(rerank_prompt)
+            rerank_response = self.gemini_model.generate_content(rerank_prompt)
             response_text = rerank_response.text
             
             id_match = re.search(r'(\[.*\])', response_text.replace('\n', ' '), re.DOTALL)
@@ -182,3 +301,45 @@ class SearchService:
         except Exception as e:
             print(f"Error during reranking: {e}")
             return search_results[:limit]
+    
+    def smart_search(
+        self,
+        user_query: str,
+        limit: int = 5,
+        rerank: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Perform a smart search including topic identification and focused search.
+        
+        Args:
+            user_query: User query text
+            limit: Maximum number of results to return
+            rerank: Whether to use Gemini to rerank results
+            
+        Returns:
+            Dictionary with search results and metadata
+        """
+        collection_name, confidence = self._identify_topic_collection(user_query)
+        
+        results = self.search(
+            query_text=user_query,
+            collection_name=collection_name,
+            limit=limit,
+            rerank=rerank,
+            auto_detect_topic=False  
+        )
+        
+        response = {
+            "query": user_query,
+            "identified_topic": collection_name,
+            "topic_confidence": confidence,
+            "results": results,
+            "result_count": len(results)
+        }
+        
+        return response
+
+
+
+    
+   
