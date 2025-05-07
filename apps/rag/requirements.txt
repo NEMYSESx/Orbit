@@ -9,3 +9,4 @@ numpy==1.26.2
 huggingface_hub>=0.20.0
 pydantic-settings
 sentence-transformers>=2.4.0
+python-dateutil

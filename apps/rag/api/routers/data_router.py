@@ -61,6 +61,6 @@ async def push_data(
         raise HTTPException(status_code=500, detail="Failed to push data")
     
     return {
-        **result, #unpacking dictonary similar to the destructruing and then combinging it with collection name
+        **result, 
         "collection_name": request.collection_name
     }

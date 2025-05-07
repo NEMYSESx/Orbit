@@ -1,10 +1,16 @@
 import os
 import sys
-import uvicorn  
+import uvicorn
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, parent_dir)
+
+router_dir = os.path.join(current_dir, 'routers')
+if router_dir not in sys.path:
+    sys.path.insert(0, router_dir)
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -48,7 +54,6 @@ async def health_check():
     """Health check endpoint."""
     return {"status": "healthy"}
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
-    
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)

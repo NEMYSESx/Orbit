@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 import os
 import sys
+from datetime import datetime
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from services.search_service import SearchService
@@ -18,6 +19,7 @@ class SearchResult(BaseModel):
     id: Any
     score: float
     text: str
+    timestamp: Optional[datetime] = None  # Added timestamp field
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 class TopicDetectionInfo(BaseModel):
@@ -32,6 +34,8 @@ class SearchRequest(BaseModel):
     rerank: Optional[bool] = True
     filter_conditions: Optional[Dict[str, Any]] = None
     auto_detect_topic: Optional[bool] = True
+    time_priority: Optional[float] = 0.5  # Weight for time prioritization (0-1)
+    time_field: Optional[str] = "created_at"  # Field name containing timestamp
 
 class SearchResponse(BaseModel):
     query: str
@@ -44,6 +48,8 @@ class SmartSearchRequest(BaseModel):
     limit: Optional[int] = 5
     rerank: Optional[bool] = True
     gemini_api_key: Optional[str] = None
+    time_priority: Optional[float] = 0.5  # Weight for time prioritization (0-1)
+    time_field: Optional[str] = "created_at"  # Field name containing timestamp
 
 @router.post("/", response_model=SearchResponse)
 async def search(
@@ -54,6 +60,7 @@ async def search(
     Search for documents in the vector database.
     
     Optionally auto-detects the most relevant collection based on the query.
+    Time prioritization can be enabled to favor recent documents.
     """
     topic_info = None
     
@@ -83,17 +90,30 @@ async def search(
         limit=request.limit,
         rerank=request.rerank,
         filter_conditions=request.filter_conditions,
-        auto_detect_topic=False  
+        auto_detect_topic=False,
+        time_priority=request.time_priority,
+        time_field=request.time_field
     )
     
     formatted_results = []
     for result in results:
         metadata = {k: v for k, v in result.payload.items() if k != 'text'}
+        timestamp = None
+        
+        if request.time_field in result.payload:
+            try:
+                timestamp_value = result.payload[request.time_field]
+                if isinstance(timestamp_value, (str, int, float)):
+                    timestamp = datetime.fromisoformat(str(timestamp_value)) if isinstance(timestamp_value, str) else datetime.fromtimestamp(timestamp_value)
+            except (ValueError, TypeError) as e:
+                print(f"Error parsing timestamp: {e}")
+        
         formatted_results.append(
             SearchResult(
                 id=result.id,
                 score=result.score,
                 text=result.payload.get('text', ''),
+                timestamp=timestamp,
                 metadata=metadata
             )
         )
@@ -113,6 +133,7 @@ async def smart_search(
     """
     Perform an intelligent search that automatically identifies the relevant topic/collection
     and performs a focused search within that collection.
+    Can prioritize recent documents using time_priority parameter.
     """
     if request.gemini_api_key:
         search_service.gemini_api_key = request.gemini_api_key
@@ -121,7 +142,9 @@ async def smart_search(
         smart_results = search_service.smart_search(
             user_query=request.query,
             limit=request.limit,
-            rerank=request.rerank
+            rerank=request.rerank,
+            time_priority=request.time_priority,
+            time_field=request.time_field
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Smart search failed: {str(e)}")
@@ -129,11 +152,22 @@ async def smart_search(
     formatted_results = []
     for result in smart_results["results"]:
         metadata = {k: v for k, v in result.payload.items() if k != 'text'}
+        timestamp = None
+        
+        if request.time_field in result.payload:
+            try:
+                timestamp_value = result.payload[request.time_field]
+                if isinstance(timestamp_value, (str, int, float)):
+                    timestamp = datetime.fromisoformat(str(timestamp_value)) if isinstance(timestamp_value, str) else datetime.fromtimestamp(timestamp_value)
+            except (ValueError, TypeError) as e:
+                print(f"Error parsing timestamp: {e}")
+                
         formatted_results.append(
             SearchResult(
                 id=result.id,
                 score=result.score,
                 text=result.payload.get('text', ''),
+                timestamp=timestamp,
                 metadata=metadata
             )
         )

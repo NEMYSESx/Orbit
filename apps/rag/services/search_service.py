@@ -75,7 +75,7 @@ class SearchService:
             print(f"Error retrieving collections: {str(e)}")
             return [settings.DEFAULT_COLLECTION_NAME]
     
-    def _identify_topic_collection(self, query_text: str) -> Tuple[str, float]:
+    def _identify_topic_collection(self, query_text: str) -> tuple[str, float]:
         """
         Identify the most relevant collection/topic for the given query.
         
@@ -87,7 +87,7 @@ class SearchService:
         """
         collections = self._get_available_collections()
         
-        if self.gemini_model:
+        if hasattr(self, 'gemini_model') and self.gemini_model:
             try:
                 collection_prompt = f"""
                 Given the user query: "{query_text}"
@@ -119,6 +119,10 @@ class SearchService:
                 print(f"Error during topic classification: {str(e)}")
         
         try:
+            if not hasattr(self, 'embedding_model') or self.embedding_model is None:
+                print("Warning: Embedding model not initialized. Using default collection.")
+                return settings.DEFAULT_COLLECTION_NAME, 0.0
+                
             query_vector = self.embedding_model.encode(query_text).tolist()
             
             collection_scores = []
@@ -160,11 +164,13 @@ class SearchService:
         limit: int = 5,
         rerank: bool = True,
         filter_conditions: Optional[Dict[str, Any]] = None,
-        auto_detect_topic: bool = True
+        auto_detect_topic: bool = True,
+        time_priority: float = 0.0,
+        time_field: str = "created_at"
     ) -> List[Any]:
         """
-        Intelligently search for documents in Qdrant with topic detection.
-        
+        Intelligently search for documents in Qdrant with topic detection and time prioritization.
+    
         Args:
             query_text: Query text
             collection_name: Name of the collection to search (overrides auto detection)
@@ -172,45 +178,61 @@ class SearchService:
             rerank: Whether to use Gemini to rerank results
             filter_conditions: Optional filter conditions for search
             auto_detect_topic: Whether to automatically detect the topic/collection
-            
+            time_priority: Weight for time prioritization (0-1)
+            time_field: Field name containing timestamp
+        
         Returns:
             List of search results
         """
         try:
             if not collection_name and auto_detect_topic:
                 collection_name, confidence = self._identify_topic_collection(query_text)
-                
+            
                 if confidence < 0.4:
                     print(f"Low confidence in topic detection ({confidence:.2f}). Using default collection.")
                     collection_name = settings.DEFAULT_COLLECTION_NAME
-            
+        
             collection_name = collection_name or settings.DEFAULT_COLLECTION_NAME
             print(f"\nPerforming search in '{collection_name}' for: '{query_text}'")
-            
+        
             query_vector = self.embedding_model.encode(query_text).tolist()
-            
+        
             search_limit = limit * 3 if rerank else limit
-            
+        
             search_results = self.qdrant_client.search(
                 collection_name,
                 query_vector,
                 limit=search_limit,
                 filter_conditions=filter_conditions
             )
-            
+        
             if not search_results:
                 print("No results found.")
                 return []
-            
+        
+            if time_priority > 0:
+                search_results = self._apply_time_prioritization(
+                    search_results,
+                    time_priority,
+                    time_field
+                )
+        
             if rerank:
                 search_results = self._rerank_with_gemini(
                     search_results,
                     query_text,
                     limit
                 )
+            
+                if time_priority > 0:
+                    search_results = self._apply_time_prioritization(
+                        search_results,
+                        time_priority * 0.5,  
+                        time_field
+                    )
             else:
                 search_results = search_results[:limit]
-                
+            
             print(f"Search results:")
             for idx, result in enumerate(search_results[:limit]):
                 print(f"Result #{idx+1}")
@@ -220,12 +242,13 @@ class SearchService:
                 if metadata:
                     print(f"Metadata: {', '.join([f'{k}: {v}' for k, v in metadata.items()])}")
                 print()
-                
+            
             return search_results
-                
+            
         except Exception as e:
             print(f"Search error: {str(e)}")
             return []
+
     
     def _rerank_with_gemini(
         self, 
@@ -306,40 +329,127 @@ class SearchService:
         self,
         user_query: str,
         limit: int = 5,
-        rerank: bool = True
+        rerank: bool = True,
+        time_priority: float = 0.0,
+        time_field: str = "created_at"
     ) -> Dict[str, Any]:
         """
-        Perform a smart search including topic identification and focused search.
-        
+        Perform a smart search including topic identification, focused search, and time prioritization.
+    
         Args:
             user_query: User query text
             limit: Maximum number of results to return
             rerank: Whether to use Gemini to rerank results
-            
+            time_priority: Weight for time prioritization (0-1)
+            time_field: Field name containing timestamp
+        
         Returns:
             Dictionary with search results and metadata
         """
         collection_name, confidence = self._identify_topic_collection(user_query)
-        
+    
         results = self.search(
             query_text=user_query,
             collection_name=collection_name,
             limit=limit,
             rerank=rerank,
-            auto_detect_topic=False  
+            auto_detect_topic=False,
+            time_priority=time_priority,
+            time_field=time_field
         )
-        
+    
         response = {
             "query": user_query,
             "identified_topic": collection_name,
             "topic_confidence": confidence,
             "results": results,
-            "result_count": len(results)
+            "result_count": len(results),
+            "time_prioritized": time_priority > 0
         }
-        
-        return response
-
-
-
     
-   
+        return response
+    
+    
+    
+    def _apply_time_prioritization(
+        self,
+        results: List[Any],
+        time_priority: float,
+        time_field: str
+    ) -> List[Any]:
+        """
+        Apply time-based prioritization to search results.
+    
+        Args:
+            results: Original search results
+            time_priority: Weight for time prioritization (0-1)
+            time_field: Field name containing timestamp
+        
+        Returns:
+            Reranked results with time priority applied
+        """
+        if not results or time_priority <= 0:
+            return results
+    
+        time_priority = max(0.0, min(1.0, time_priority))
+    
+        import datetime
+        from dateutil import parser
+        import numpy as np
+    
+        now = datetime.datetime.now()
+    
+        scored_results = []
+        valid_timestamps = []
+    
+        for result in results:
+            if time_field in result.payload:
+                try:
+                    timestamp_value = result.payload[time_field]
+                    if isinstance(timestamp_value, str):
+                        timestamp = parser.parse(timestamp_value)
+                    elif isinstance(timestamp_value, (int, float)):
+                        timestamp = datetime.datetime.fromtimestamp(timestamp_value)
+                    elif isinstance(timestamp_value, datetime.datetime):
+                        timestamp = timestamp_value
+                    else:
+                        print(f"Invalid timestamp format for result {result.id}")
+                        scored_results.append((result, result.score, None))
+                        continue
+                
+                    valid_timestamps.append(timestamp)
+                    scored_results.append((result, result.score, timestamp))
+                except Exception as e:
+                    print(f"Error parsing timestamp for result {result.id}: {e}")
+                    scored_results.append((result, result.score, None))
+            else:
+                scored_results.append((result, result.score, None))
+    
+        if not valid_timestamps:
+            print("No valid timestamps found in results, skipping time prioritization")
+            return results
+    
+        max_age = max([(now - ts).total_seconds() for ts in valid_timestamps])
+        if max_age <= 0:
+            return results
+    
+        rescored_results = []
+        for result, original_score, timestamp in scored_results:
+            if timestamp is not None:
+                age_seconds = (now - timestamp).total_seconds()
+                recency_score = 1.0 - (age_seconds / max_age)
+            
+                combined_score = (1 - time_priority) * original_score + time_priority * recency_score
+            else:
+                combined_score = original_score
+        
+            rescored_results.append((result, combined_score))
+    
+        rescored_results.sort(key=lambda x: x[1], reverse=True)
+    
+        final_results = []
+        for result, combined_score in rescored_results:
+            result.score = combined_score
+            final_results.append(result)
+    
+        return final_results
