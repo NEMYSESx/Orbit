@@ -1,12 +1,12 @@
 import os
 import sys
-
 parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, parent_dir)
 
 from fastapi import APIRouter, Depends, HTTPException, Body
 from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
+from datetime import datetime
 from services.data_service import DataService
 from config import settings
 
@@ -19,14 +19,20 @@ router = APIRouter(
 class DocumentItem(BaseModel):
     id: Optional[Any] = None
     text: str
-    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    
+    class Config:
+        extra = "allow"
 
 class PushDataRequest(BaseModel):
-    collection_name: Optional[str] = settings.DEFAULT_COLLECTION_NAME
+    collection_name: str
     data: List[DocumentItem]
     recreate_collection: Optional[bool] = False
     use_chunking: Optional[bool] = True
     gemini_api_key: Optional[str] = None
+    
+    class Config:
+        extra = "allow"
 
 class PushDataResponse(BaseModel):
     status: str
@@ -39,28 +45,34 @@ async def push_data(
     data_service: DataService = Depends(lambda: DataService())
 ):
     """
-    Push data to the vector database.
+    Push data to the vector database with support for time-based search.
+    
+    Automatically adds timestamps to documents if not provided to support
+    time-based searching and prioritization.
     """
     data = []
+    
     for i, item in enumerate(request.data):
         entry = {
             "id": item.id if item.id is not None else i,
             "text": item.text,
-            "metadata": item.metadata
+            "metadata": dict(item.metadata)
         }
-    data.append(entry)
+        data.append(entry)
+    
+    print(f"Pushing {len(data)} items to collection '{request.collection_name}'")
+    
     result = data_service.push_data(
         data=data,
         collection_name=request.collection_name,
-        recreate_collection=request.recreate_collection,
         use_chunking=request.use_chunking,
-        gemini_api_key=request.gemini_api_key
+        gemini_api_key=request.gemini_api_key,
     )
     
     if result is None or "status" not in result:
         raise HTTPException(status_code=500, detail="Failed to push data")
     
     return {
-        **result, 
+        **result,
         "collection_name": request.collection_name
     }

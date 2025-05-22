@@ -14,7 +14,6 @@ from qdrant_client.http import models
 from config import settings
 
 class DataService:
-    """Service for managing data in Qdrant."""
     
     def __init__(
         self,
@@ -22,28 +21,12 @@ class DataService:
         embedding_model: EmbeddingModel = None,
         chunker: AgenticChunker = None
     ):
-        """
-        Initialize the data service.
-        
-        Args:
-            qdrant_client: Qdrant client wrapper
-            embedding_model: Embedding model
-            chunker: Document chunker
-        """
         self.qdrant_client = qdrant_client or QdrantClientWrapper()
         self.embedding_model = embedding_model or EmbeddingModel()
         self.chunker = chunker
         
     def initialize_chunker(self, gemini_api_key: Optional[str] = None) -> AgenticChunker:
-        """
-        Initialize the document chunker if not already initialized.
-        
-        Args:
-            gemini_api_key: API key for Gemini
-            
-        Returns:
-            Initialized chunker
-        """
+        """Initialize the document chunker if not already initialized."""
         if self.chunker is None:
             self.chunker = AgenticChunker(gemini_api_key=gemini_api_key)
         return self.chunker
@@ -51,24 +34,11 @@ class DataService:
     def push_data(
         self,
         data: List[Dict[str, Any]],
-        collection_name: str = settings.DEFAULT_COLLECTION_NAME,
-        recreate_collection: bool = False,
+        collection_name: str,
         use_chunking: bool = True,
-        gemini_api_key: Optional[str] = None
+        gemini_api_key: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        Push data to Qdrant.
-        
-        Args:
-            data: List of data items to push
-            collection_name: Name of the collection to push data to
-            recreate_collection: Whether to recreate the collection if it exists
-            use_chunking: Whether to use intelligent chunking
-            gemini_api_key: API key for Gemini
-            
-        Returns:
-            Dictionary with push results
-        """
+        """Push data to Qdrant with timestamp support."""
         if use_chunking:
             self.initialize_chunker(gemini_api_key)
         
@@ -76,15 +46,7 @@ class DataService:
         print(f"Using model '{self.embedding_model.model_name}' with vector size: {vector_size}")
         
         if self.qdrant_client.collection_exists(collection_name):
-            if recreate_collection:
-                print(f"Deleting existing collection '{collection_name}'...")
-                self.qdrant_client.delete_collection(collection_name)
-                print(f"Collection '{collection_name}' deleted.")
-                print(f"Creating collection '{collection_name}' with vector size {vector_size}...")
-                self.qdrant_client.create_collection(collection_name, vector_size)
-                print(f"Collection '{collection_name}' created successfully.")
-            else:
-                print(f"Collection '{collection_name}' already exists.")
+            print(f"Collection '{collection_name}' already exists.")
         else:
             print(f"Creating collection '{collection_name}' with vector size {vector_size}...")
             self.qdrant_client.create_collection(collection_name, vector_size)
@@ -94,42 +56,48 @@ class DataService:
         points = []
         
         for item_idx, item in enumerate(tqdm(data)):
-            text = item.get("text", "")
+            timestamp = int(time.time())
             
+            text = item.get("text", "")
             if not text.strip():
                 print(f"Skipping item {item_idx} - empty text")
                 continue
             
+            metadata = item.get("metadata", {}).copy()
+            metadata["timestamp"] = timestamp
+            
             processed_items = []
             if use_chunking and self.chunker and len(text) > settings.DEFAULT_CHUNK_SIZE:
-                chunks = self.chunker.chunk_text(text, item.get("metadata", {}))
+                chunks = self.chunker.chunk_text(text, metadata)
                 for i, chunk in enumerate(chunks):
                     original_id = item.get('id', item_idx)
                     if isinstance(original_id, str) and original_id.isdigit():
                         original_id = int(original_id)
         
                     chunk_id = int(f"{original_id}{i:03d}")
+                    
+                    chunk_metadata = {
+                        **chunk["metadata"],
+                        "parent_id": original_id,
+                        "chunk_index": i,
+                        "original_text_length": len(text)
+                    }
         
                     chunk_item = {
                         "id": chunk_id,
                         "text": chunk["text"],
-                        "metadata": {
-                            **chunk["metadata"],
-                            "parent_id": original_id,
-                            "chunk_index": i,
-                            "original_text_length": len(text)
-                        }
+                        "metadata": chunk_metadata
                     }
                     processed_items.append(chunk_item)
             else:
                 item_id = item.get("id", item_idx)
                 if isinstance(item_id, str) and item_id.isdigit():
-                    item_id = int(item_id)  
+                    item_id = int(item_id)
     
                 processed_items.append({
                     "id": item_id,
                     "text": text,
-                    "metadata": item.get("metadata", {})
+                    "metadata": metadata  
                 })
             
             for proc_item in processed_items:
