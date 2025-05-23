@@ -1,0 +1,355 @@
+
+/* :root {
+    --form-background-color: #E3F2FD; 
+    --form-border-color: #B3E5FC; 
+    --input-background-color: #FFFFFF;
+    --input-border-color: #BBDEFB;
+    --input-text-color: #333;
+    --label-color: #555;
+    --button-background-color: #2196F3; 
+    --button-hover-background-color: #1976D2; 
+    --button-text-color: #FFFFFF;
+    --card-shadow: rgba(0, 0, 0, 0.1);
+}
+
+.dark-mode {
+    --form-background-color: #2a2a2a; 
+    --form-border-color: #3e3e3e; 
+    --input-background-color: #333;
+    --input-border-color: #555;
+    --input-text-color: #e0e0e0;
+    --label-color: #b0b0b0;
+    --button-background-color: #3b82f6; 
+    --button-hover-background-color: #2563eb;
+    --button-text-color: #ffffff;
+    --card-shadow: rgba(0, 0, 0, 0.3);
+}
+
+.raise-ticket-container {
+    max-width: 500px;
+    margin: 50px auto; 
+    padding: 30px;
+    background-color: var(--form-background-color);
+    border-radius: 12px;
+    box-shadow: 0 8px 25px var(--card-shadow); 
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    border: 1px solid var(--form-border-color);
+}
+
+.raise-ticket-container h2 {
+    text-align: center;
+    color: var(--nav-text-color, #333);
+    margin-bottom: 25px;
+    font-size: 2.2em;
+    font-weight: 700;
+    position: relative; 
+}
+
+.raise-ticket-container h2::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 4px;
+    background-color: var(--button-background-color);
+    border-radius: 2px;
+}
+
+
+.ticket-form label {
+    display: block; 
+    margin-bottom: 8px;
+    color: var(--label-color);
+    font-size: 1.1em;
+    font-weight: 500;
+}
+
+.ticket-form input[type="text"],
+.ticket-form input[type="email"],
+.ticket-form textarea {
+    width: calc(100% - 20px); 
+    padding: 12px 10px;
+    margin-top: 5px;
+    margin-bottom: 20px; 
+    border: 1px solid var(--input-border-color);
+    border-radius: 8px;
+    background-color: var(--input-background-color);
+    color: var(--input-text-color);
+    font-size: 1em;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    -webkit-appearance: none; 
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.ticket-form input:focus,
+.ticket-form textarea:focus {
+    outline: none;
+    border-color: var(--button-background-color);
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2); 
+}
+
+.ticket-form textarea {
+    resize: vertical; 
+    min-height: 100px; 
+}
+
+.ticket-form button[type="submit"] {
+    display: block; 
+    width: 100%; 
+    padding: 14px 25px;
+    background-color: var(--button-background-color);
+    color: var(--button-text-color);
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    margin-top: 15px; 
+}
+
+.ticket-form button[type="submit"]:hover {
+    background-color: var(--button-hover-background-color);
+    transform: translateY(-2px); 
+}
+
+.ticket-form button[type="submit"]:active {
+    transform: translateY(0);
+}
+
+
+@media (max-width: 600px) {
+    .raise-ticket-container {
+        margin: 20px;
+        padding: 20px;
+    }
+}  */
+
+
+/* RaiseTicket.css */
+
+/* Variables for theming */
+:root {
+    --form-background-color: #f8f9fa; /* Lighter white/grey */
+    --form-border-color: #e0e0e0;
+    --input-background-color: #FFFFFF;
+    --input-border-color: #ced4da;
+    --input-focus-border-color: #007bff; /* Primary blue for focus */
+    --input-text-color: #343a40; /* Darker text */
+    --label-color: #495057; /* Slightly darker grey for labels */
+    --button-background-color: #007bff; /* Primary blue */
+    --button-hover-background-color: #0056b3; /* Darker blue */
+    --button-text-color: #FFFFFF;
+    --card-shadow: rgba(0, 0, 0, 0.1);
+    --title-color: #343a40;
+    --placeholder-color: #6c757d;
+}
+
+.dark-mode {
+    --form-background-color: #1e1e1e; /* Dark background */
+    --form-border-color: #333333;
+    --input-background-color: #2a2a2a;
+    --input-border-color: #444444;
+    --input-focus-border-color: #66b3ff; /* Lighter blue for dark mode focus */
+    --input-text-color: #e0e0e0;
+    --label-color: #b0b0b0;
+    --button-background-color: #66b3ff; /* Lighter blue for dark mode button */
+    --button-hover-background-color: #4da6ff;
+    --button-text-color: #1e1e1e; /* Dark text on light button in dark mode */
+    --card-shadow: rgba(0, 0, 0, 0.4);
+    --title-color: #e0e0e0;
+    --placeholder-color: #a0a0a0;
+}
+
+.raise-ticket-container {
+    max-width: 900px;
+    min-width: 600px;
+    margin: 50px auto; /* Center the form with some top margin */
+    padding: 50px;/* Increased padding */
+    background-color: var(--form-background-color);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px var(--card-shadow); /* More pronounced shadow */
+    display: flex;
+    flex-direction: column;
+    gap: 25px; /* Increased gap between form elements */
+    border: 1px solid var(--form-border-color);
+    transition: all 0.3s ease; /* Smooth transition for dark mode */
+}
+
+.raise-ticket-container h2 {
+    text-align: center;
+    color: var(--title-color); /* Use title color variable */
+    margin-bottom: 25px;
+    font-size: 2.5em; /* Slightly larger heading */
+    font-weight: 700;
+    position: relative;
+    letter-spacing: 0.5px; /* Slight letter spacing for title */
+}
+
+.raise-ticket-container h2::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 70px; /* Slightly wider underline */
+    height: 4px;
+    background-color: var(--button-background-color);
+    border-radius: 2px;
+}
+
+.ticket-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px; /* Space between form fields */
+}
+
+.form-field-group {
+    flex: 1; /* Allow fields to grow and shrink */
+    min-width: 250px; /* Minimum width for each input field before wrapping */
+    display: flex;
+    flex-direction: column; 
+}
+
+.ticket-form label {
+    display: block;
+    margin-bottom: 5px; /* Smaller margin below label, input has its own */
+    color: var(--label-color);
+    font-size: 1.1em;
+    font-weight: 500;
+}
+
+.ticket-form input[type="text"],
+.ticket-form input[type="email"],
+.ticket-form textarea {
+    width: 100%; /* Make them full width */
+    padding: 14px 15px; /* More padding */
+    border: 1px solid var(--input-border-color);
+    border-radius: 8px; /* Slightly more rounded corners */
+    background-color: var(--input-background-color);
+    color: var(--input-text-color);
+    font-size: 1em;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+}
+
+.ticket-form input::placeholder,
+.ticket-form textarea::placeholder {
+    color: var(--placeholder-color); /* Placeholder color */
+    opacity: 1; /* Firefox default is lower opacity */
+}
+
+
+.ticket-form input:focus,
+.ticket-form textarea:focus {
+    outline: none;
+    border-color: var(--input-focus-border-color);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25); /* More distinct glow on focus */
+}
+
+.ticket-form textarea {
+    resize: vertical;
+    min-height: 120px; /* Taller minimum height for query box */
+    line-height: 1.5; /* Better readability for multi-line text */
+}
+
+.form-field-group.full-width {
+    flex: 1 1 100%; /* Takes full width of its container */
+    min-width: auto;
+}
+
+.ticket-form button { /* General button styles for both submit and cancel */
+    padding: 15px 25px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.2em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    flex: 1; /* Allow buttons to share space, but only up to their content if content is short */
+    max-width: 180px; /* Limit button width */
+}
+
+
+.ticket-form button[type="submit"] {
+    background-color: var(--button-background-color);
+    color: var(--button-text-color);
+}
+
+.ticket-form button[type="submit"]:hover {
+    background-color: var(--button-hover-background-color);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+}
+
+.ticket-form button[type="submit"]:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Cancel Button Specific Styles */
+.ticket-form .cancel-button {
+    background-color: var(--cancel-button-background-color);
+    color: var(--button-text-color); /* Usually white text on dark cancel button */
+}
+
+.ticket-form .cancel-button:hover {
+    background-color: var(--cancel-button-hover-background-color);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+}
+
+.ticket-form .cancel-button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .ticket-form {
+        flex-direction: column;
+    }
+    .form-field-group {
+        min-width: 100%;
+    }
+    .raise-ticket-container {
+        min-width: unset;
+        max-width: 90%;
+    }
+    .form-buttons {
+        flex-direction: column; /* Stack buttons vertically on small screens */
+        align-items: center; /* Center stacked buttons */
+    }
+    .ticket-form button {
+        width: 100%; /* Make buttons full width when stacked */
+        max-width: unset; /* Remove max-width when stacked */
+    }
+}
+
+@media (max-width: 600px) {
+    .raise-ticket-container {
+        margin: 20px auto;
+        padding: 25px;
+        border-radius: 8px;
+    }
+    .raise-ticket-container h2 {
+        font-size: 2em;
+    }
+    .ticket-form input[type="text"],
+    .ticket-form input[type="email"],
+    .ticket-form textarea,
+    .ticket-form button { /* Apply to both buttons */
+        padding: 12px 10px;
+        font-size: 1em;
+    }
+}

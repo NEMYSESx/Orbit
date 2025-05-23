@@ -474,6 +474,8 @@ html, body{
 
 .message.bot {
   justify-content: flex-start;
+  align-items: flex-start; /* Changed from 'center' to 'flex-start' to align the bot icon with the top of the message block */
+  margin-bottom: 60px !important;
 }
 
 .message.bot img {
@@ -546,4 +548,77 @@ code {
     font-size: 50px;
   }
 }
+
+/* .bot-message-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 16px;
+} */
+
+/* .hello {
+  background-color: #1f1f1f;
+  padding: 12px 16px;
+  border-radius: 16px;
+  max-width: 60%;
+  color: white;
+  font-size: 15px;
+} */
+
+/* .bot-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 0;
+  padding-left: 0;
+}
+
+.bot-buttons button {
+  background-color: #444;
+  color: #fff;
+  border: none;
+  padding: 3px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.bot-buttons button:hover {
+  background-color: #666;
+}
+
+.dark-mode .bot-buttons button {
+  background-color: #333;
+  color: #fff;
+} */
+
+
+
+
+
+
+ 
+.message-footer {
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+  margin-top: 6px;
+  padding-left: 5px;
+}
+
+.message-footer button {
+  background-color: #1f1f1f;
+  color: #ccc;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0px 6px;
+  transition: color 0.2s ease;
+}
+
+.message-footer button:hover {
+  color: white;
+} 
+
+
 
