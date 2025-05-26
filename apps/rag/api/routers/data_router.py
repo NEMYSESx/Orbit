@@ -5,10 +5,8 @@ sys.path.insert(0, parent_dir)
 
 from fastapi import APIRouter, Depends, HTTPException, Body
 from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, Field, validator
-from datetime import datetime
+from pydantic import BaseModel, Field
 from services.data_service import DataService
-from config import settings
 
 router = APIRouter(
     prefix="/data",
@@ -44,12 +42,6 @@ async def push_data(
     request: PushDataRequest,
     data_service: DataService = Depends(lambda: DataService())
 ):
-    """
-    Push data to the vector database with support for time-based search.
-    
-    Automatically adds timestamps to documents if not provided to support
-    time-based searching and prioritization.
-    """
     data = []
     
     for i, item in enumerate(request.data):

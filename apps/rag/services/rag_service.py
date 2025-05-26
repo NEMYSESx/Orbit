@@ -27,7 +27,8 @@ class RAGService:
             self.search_service = search_service
         else:
             qdrant_client = QdrantClientWrapper()
-            embedding_model = EmbeddingModel()
+            embedding_model = EmbeddingModel(model_name=settings.EMBEDDING_MODEL,
+            output_dimensionality=settings.EMBEDDING_DIMENSIONALITY)
             self.search_service = SearchService(
                 qdrant_client=qdrant_client, 
                 embedding_model=embedding_model

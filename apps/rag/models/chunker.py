@@ -19,7 +19,7 @@ class AgenticChunker:
     how to split documents in a context-aware manner.
     """
     
-    def __init__(self, gemini_api_key=None, model_name=settings.DEFAULT_LLM_MODEL):
+    def __init__(self, gemini_api_key=None, model_name=settings.LLM_MODEL):
         """
         Initialize the agentic chunker with Gemini LLM.
         
@@ -81,8 +81,8 @@ class AgenticChunker:
                 recommendations = json.loads(json_str)
             else:
                 recommendations = {
-                    "chunk_size": settings.DEFAULT_CHUNK_SIZE,
-                    "chunk_overlap": settings.DEFAULT_CHUNK_OVERLAP,
+                    "chunk_size": settings.CHUNK_SIZE,
+                    "chunk_overlap": settings.CHUNK_OVERLAP,
                     "respect_boundaries": ["paragraph"],
                     "hierarchical": False,
                     "special_considerations": "None detected"
@@ -91,7 +91,7 @@ class AgenticChunker:
             print(f"Error parsing LLM recommendation: {e}")
             recommendations = {
                 "chunk_size": settings.DEFAULT_CHUNK_SIZE,
-                "chunk_overlap": settings.DEFAULT_CHUNK_OVERLAP,
+                "chunk_overlap": settings.CHUNK_OVERLAP,
                 "respect_boundaries": ["paragraph"],
                 "hierarchical": False,
                 "special_considerations": "None detected"
@@ -113,8 +113,8 @@ class AgenticChunker:
         print("Analyzing document for optimal chunking strategy...")
         recommendations = self.analyze_document(text)
         
-        chunk_size = min(recommendations.get("chunk_size", settings.DEFAULT_CHUNK_SIZE), settings.MAX_CHUNK_SIZE)
-        chunk_overlap = min(recommendations.get("chunk_overlap", settings.DEFAULT_CHUNK_OVERLAP), chunk_size // 2)
+        chunk_size = min(recommendations.get("chunk_size", settings.CHUNK_SIZE), settings.MAX_CHUNK_SIZE)
+        chunk_overlap = min(recommendations.get("chunk_overlap", settings.CHUNK_OVERLAP), chunk_size // 2)
         respect_boundaries = recommendations.get("respect_boundaries", ["paragraph"])
         
         print(f"Chunking with size: {chunk_size}, overlap: {chunk_overlap}")

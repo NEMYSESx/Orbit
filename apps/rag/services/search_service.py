@@ -10,7 +10,7 @@ from models.qdrant_client import QdrantClientWrapper
 from config import settings
 
 class SearchService:
-    """Simplified service for searching data with automatic collection selection and time prioritization."""
+    """Service for searching data with dynamic collection selection and time prioritization."""
     
     def __init__(
         self,
@@ -42,65 +42,107 @@ class SearchService:
             List of search results
         """
         try:
+            # If no collection specified, find the most relevant ones
             if not collection_name:
-                collection_name, confidence = self._identify_collection(query_text)
-                print(f"Auto-selected collection '{collection_name}' with confidence {confidence:.2f}")
-            
-            query_vector = self.embedding_model.encode(query_text).tolist()
-            
-            search_limit = limit * 2
-            
-            results = self.qdrant_client.search(
-                collection_name,
-                query_vector,
-                limit=search_limit,
-                filter_conditions=filter_conditions
-            )
+                relevant_collections = self._identify_relevant_collections(query_text)
+                if not relevant_collections:
+                    print("No relevant collections found for the query")
+                    return []
+                
+                # Search across all relevant collections
+                all_results = []
+                for collection, confidence in relevant_collections:
+                    try:
+                        collection_results = self._search_single_collection(
+                            collection,
+                            query_text,
+                            limit,
+                            filter_conditions
+                        )
+                        # Adjust scores based on collection confidence
+                        for result in collection_results:
+                            result.score *= confidence
+                        all_results.extend(collection_results)
+                    except Exception as e:
+                        print(f"Error searching collection {collection}: {str(e)}")
+                        continue
+                
+                # Sort combined results by score
+                all_results.sort(key=lambda x: x.score, reverse=True)
+                results = all_results[:limit]
+                
+            else:
+                # Search in specific collection
+                results = self._search_single_collection(
+                    collection_name,
+                    query_text,
+                    limit,
+                    filter_conditions
+                )
             
             if not results:
                 print("No results found")
                 return []
             
             results = self._apply_time_prioritization(results, time_priority)
-            
             return results[:limit]
             
         except Exception as e:
             print(f"Search error: {str(e)}")
             return []
     
-    def _identify_collection(self, query_text: str) -> Tuple[str, float]:
+    def _search_single_collection(
+        self,
+        collection_name: str,
+        query_text: str,
+        limit: int,
+        filter_conditions: Optional[Dict[str, Any]] = None
+    ) -> List[Any]:
         """
-        Identify the most relevant collection for the query.
+        Search within a single collection.
+        """
+        query_vector = self.embedding_model.encode(query_text).tolist()
+        return self.qdrant_client.search(
+            collection_name,
+            query_vector,
+            limit=limit,
+            filter_conditions=filter_conditions
+        )
+    
+    def _identify_relevant_collections(self, query_text: str) -> List[Tuple[str, float]]:
+        """
+        Identify collections relevant to the query, sorted by relevance.
         
-        Args:
-            query_text: User query text
-            
         Returns:
-            Tuple of (collection_name, confidence_score)
+            List of tuples (collection_name, confidence_score)
         """
         collections = self._get_available_collections()
+        if not collections:
+            return []
         
         if len(collections) == 1:
-            return collections[0], 1.0
+            return [(collections[0], 1.0)]
         
         try:
             query_vector = self.embedding_model.encode(query_text).tolist()
-            best_score = -1
-            best_collection = settings.DEFAULT_COLLECTION_NAME
+            collection_scores = []
             
             for collection in collections:
-                collection_embedding = self.embedding_model.encode(f"Documents about {collection}").tolist()
+                # Create a description of the collection's content
+                collection_desc = f"Documents about {collection}"
+                collection_embedding = self.embedding_model.encode(collection_desc).tolist()
                 score = self._vector_similarity(query_vector, collection_embedding)
                 
-                if score > best_score:
-                    best_score = score
-                    best_collection = collection
+                if score >= settings.COLLECTION_SIMILARITY_THRESHOLD:
+                    collection_scores.append((collection, score))
             
-            return best_collection, best_score
+            # Sort by score in descending order
+            collection_scores.sort(key=lambda x: x[1], reverse=True)
+            return collection_scores
+            
         except Exception as e:
             print(f"Error in collection selection: {str(e)}")
-            return settings.DEFAULT_COLLECTION_NAME, 0.0
+            return []
     
     def _vector_similarity(self, vec1: List[float], vec2: List[float]) -> float:
         """Calculate cosine similarity between two vectors."""
@@ -114,7 +156,7 @@ class SearchService:
             return self.qdrant_client.list_collections()
         except Exception as e:
             print(f"Error retrieving collections: {str(e)}")
-            return [settings.DEFAULT_COLLECTION_NAME]
+            return []
     
     def _apply_time_prioritization(
         self,

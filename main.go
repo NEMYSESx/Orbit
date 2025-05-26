@@ -7,12 +7,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/NEMYSESx/orbit/apps/data/logs"
 	tika_extractor "github.com/NEMYSESx/orbit/apps/ingestion-pipeline/cmd/tika-extractor"
-	"github.com/NEMYSESx/orbit/libs/logs"
 )
 
 func main() {
-	config := logs.NewLogConfig()
+	config := logs.DefaultLogConfig()
 	
 	config.OutputDir = "./data/synthetic_logs"
 	config.LogsPerMinute = map[string]int{

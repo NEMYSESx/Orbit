@@ -15,11 +15,12 @@ class SearchResult(BaseModel):
     id: Any
     score: float
     text: str
+    collection: str  # Added to show which collection the result came from
     timestamp: Optional[datetime] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
-class TopicInfo(BaseModel):
-    collection: str
+class CollectionInfo(BaseModel):
+    name: str
     confidence: float
 
 class SearchRequest(BaseModel):
@@ -33,7 +34,7 @@ class SearchResponse(BaseModel):
     query: str
     results: List[SearchResult]
     count: int
-    selected_collection: Optional[TopicInfo] = None
+    relevant_collections: List[CollectionInfo]  # Changed from selected_collection to show all relevant collections
 
 @router.post("/", response_model=SearchResponse)
 async def search(
@@ -41,26 +42,27 @@ async def search(
     search_service: SearchService = Depends(lambda: SearchService())
 ):
     """
-    Search for documents with automatic collection selection and time prioritization.
+    Search across collections with automatic relevance detection.
     
-    - If collection_name is not provided, the most relevant collection is automatically selected
+    - If collection_name is not provided, searches across all relevant collections
+    - Results are combined and ranked by relevance score
     - time_priority (0.0-1.0) controls the balance between relevance and recency
-    - When multiple documents have similar relevance, more recent ones are prioritized using the 'timestamp' field
+    - When multiple documents have similar relevance, more recent ones are prioritized
     """
-    selected_collection = None
-    collection_name = request.collection_name
-    
-    if not collection_name:
-        collection_name, confidence = search_service._identify_collection(request.query)
-        selected_collection = TopicInfo(
-            collection=collection_name, 
-            confidence=confidence
-        )
-    
     try:
+        # Get relevant collections first
+        relevant_collections = []
+        if not request.collection_name:
+            collection_scores = search_service._identify_relevant_collections(request.query)
+            relevant_collections = [
+                CollectionInfo(name=name, confidence=score)
+                for name, score in collection_scores
+            ]
+        
+        # Perform the search
         results = search_service.search(
             query_text=request.query,
-            collection_name=collection_name,
+            collection_name=request.collection_name,
             limit=request.limit,
             filter_conditions=request.filter_conditions,
             time_priority=request.time_priority
@@ -69,7 +71,7 @@ async def search(
         formatted_results = []
         for result in results:
             metadata = {k: v for k, v in result.payload.items() 
-                    if k != 'text' and k != 'timestamp'}
+                    if k not in ['text', 'timestamp', 'collection']}
             
             timestamp = None
             if "timestamp" in result.payload:
@@ -82,6 +84,7 @@ async def search(
                     id=result.id,
                     score=result.score,
                     text=result.payload.get('text', ''),
+                    collection=result.payload.get('collection', request.collection_name or 'unknown'),
                     timestamp=timestamp,
                     metadata=metadata
                 )
@@ -91,8 +94,19 @@ async def search(
             query=request.query,
             results=formatted_results,
             count=len(formatted_results),
-            selected_collection=selected_collection
+            relevant_collections=relevant_collections
         )
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+@router.get("/collections")
+async def list_collections(
+    search_service: SearchService = Depends(lambda: SearchService())
+):
+    """List all available collections."""
+    try:
+        collections = search_service._get_available_collections()
+        return {"collections": collections}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list collections: {str(e)}")

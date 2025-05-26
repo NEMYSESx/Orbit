@@ -1,6 +1,7 @@
 package logs
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
@@ -63,6 +64,15 @@ var (
 	currentRand = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
+type LogEntry struct {
+	Timestamp   string            `json:"timestamp"`
+	Level       string            `json:"level"`
+	Type        string            `json:"type"`
+	Message     string            `json:"message"`
+	Source      string            `json:"source,omitempty"`
+	Details     map[string]string `json:"details,omitempty"`
+}
+
 type LogConfig struct {
 	OutputDir          string
 	RotationInterval   time.Duration
@@ -109,6 +119,26 @@ func replacePlaceholders(template string, values map[string]string) string {
 	return result
 }
 
+func extractLogLevel(message string) string {
+	parts := strings.SplitN(message, ":", 2)
+	if len(parts) > 0 {
+		level := strings.TrimSpace(parts[0])
+		switch level {
+		case "INFO", "NOTICE", "WARNING", "ERROR", "CRITICAL":
+			return level
+		}
+	}
+	return "INFO"
+}
+
+func extractMessageContent(message string) string {
+	parts := strings.SplitN(message, ":", 2)
+	if len(parts) > 1 {
+		return strings.TrimSpace(parts[1])
+	}
+	return message
+}
+
 func generateLogEntry(logType string, timestamp time.Time, includeErrors bool) string {
 	levelIndex := 0
 	
@@ -127,7 +157,7 @@ func generateLogEntry(logType string, timestamp time.Time, includeErrors bool) s
 	
 	template := LogTypes[logType][levelIndex%len(LogTypes[logType])]
 	
-	timestampStr := timestamp.Format("2006-01-02 15:04:05.000")
+	timestampStr := timestamp.Format("2006-01-02T15:04:05.000Z")
 	
 	values := map[string]string{
 		"timestamp":        timestampStr,
@@ -152,13 +182,45 @@ func generateLogEntry(logType string, timestamp time.Time, includeErrors bool) s
 		"time_period":      fmt.Sprintf("%d hours", currentRand.Intn(24)+1),
 	}
 	
-	logEntry := replacePlaceholders(template, values)
-	return fmt.Sprintf("%s %s", timestampStr, logEntry)
+	logMessage := replacePlaceholders(template, values)
+	level := extractLogLevel(logMessage)
+	messageContent := extractMessageContent(logMessage)
+	
+	details := make(map[string]string)
+	for key, value := range values {
+		if key != "timestamp" && strings.Contains(template, "{"+key+"}") {
+			details[key] = value
+		}
+	}
+	
+	logEntry := LogEntry{
+		Timestamp: timestampStr,
+		Level:     level,
+		Type:      logType,
+		Message:   messageContent,
+		Source:    fmt.Sprintf("%s-generator", logType),
+		Details:   details,
+	}
+	
+	jsonBytes, err := json.MarshalIndent(logEntry, "  ", "  ")
+	if err != nil {
+		return fmt.Sprintf(`  {
+    "timestamp": "%s",
+    "level": "ERROR",
+    "type": "%s",
+    "message": "Failed to marshal log entry",
+    "source": "log-generator"
+  }`, timestampStr, logType)
+	}
+	
+	return string(jsonBytes)
 }
 
 func appendLogToFile(logEntry string, filename string) error {
 	_, err := os.Stat(filename)
-	if os.IsNotExist(err) {
+	fileExists := !os.IsNotExist(err)
+	
+	if !fileExists {
 		dir := filepath.Dir(filename)
 		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 			return err
@@ -169,15 +231,37 @@ func appendLogToFile(logEntry string, filename string) error {
 			return err
 		}
 		defer file.Close()
+		
+		_, err = file.WriteString("[\n" + logEntry + "\n]")
+		return err
 	}
 	
-	file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	
+	contentStr := string(content)
+	hasEntries := len(contentStr) > 2 && !strings.EqualFold(strings.TrimSpace(contentStr), "[]")
+	
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 	
-	_, err = file.WriteString(logEntry + "\n")
+	if hasEntries {
+		if strings.HasSuffix(contentStr, "\n]") {
+			contentStr = contentStr[:len(contentStr)-2]
+		} else if strings.HasSuffix(contentStr, "]") {
+			contentStr = contentStr[:len(contentStr)-1] 
+		}
+		
+		_, err = file.WriteString(contentStr + ",\n" + logEntry + "\n]")
+	} else {
+		_, err = file.WriteString("[\n" + logEntry + "\n]")
+	}
+	
 	return err
 }
 
@@ -189,7 +273,7 @@ func rotateLogFile(logType string, config LogConfig) (string, error) {
 		return "", err
 	}
 	
-	newFilename := filepath.Join(baseDir, fmt.Sprintf("%s-%s.log", logType, timestamp))
+	newFilename := filepath.Join(baseDir, fmt.Sprintf("%s-%s.json", logType, timestamp))
 	return newFilename, nil
 }
 
@@ -205,7 +289,7 @@ func cleanupOldLogs(config LogConfig) error {
 			return nil
 		}
 		
-		if strings.HasSuffix(info.Name(), ".log") && info.ModTime().Before(cutoffTime) {
+		if strings.HasSuffix(info.Name(), ".json") && info.ModTime().Before(cutoffTime) {
 			return os.Remove(path)
 		}
 		
@@ -214,7 +298,7 @@ func cleanupOldLogs(config LogConfig) error {
 }
 
 func StartContinuousLogging(config LogConfig) {
-	fmt.Printf("Starting continuous log generation in %s\n", config.OutputDir)
+	fmt.Printf("Starting continuous JSON log generation in %s\n", config.OutputDir)
 	
 	if err := os.MkdirAll(config.OutputDir, os.ModePerm); err != nil {
 		fmt.Printf("Error creating output directory: %v\n", err)
@@ -225,11 +309,11 @@ func StartContinuousLogging(config LogConfig) {
 	for logType := range config.LogsPerMinute {
 		newFile, err := rotateLogFile(logType, config)
 		if err != nil {
-			fmt.Printf("Error creating log file for %s: %v\n", logType, err)
+			fmt.Printf("Error creating JSON log file for %s: %v\n", logType, err)
 			return
 		}
 		currentLogFiles[logType] = newFile
-		fmt.Printf("Created initial log file for %s: %s\n", logType, newFile)
+		fmt.Printf("Created initial JSON log file for %s: %s\n", logType, newFile)
 	}
 	
 	rotationTicker := time.NewTicker(config.RotationInterval)
@@ -273,7 +357,7 @@ func StartContinuousLogging(config LogConfig) {
 				
 					err := appendLogToFile(logEntry, currentLogFiles[lt])
 					if err != nil {
-						fmt.Printf("Error writing to log file for %s: %v\n", lt, err)
+						fmt.Printf("Error writing to JSON log file for %s: %v\n", lt, err)
 						continue
 					}
 					
@@ -283,11 +367,11 @@ func StartContinuousLogging(config LogConfig) {
 						if fileSizes[lt] > int64(config.MaxFileSizeMB)*1024*1024 {
 							newFile, err := rotateLogFile(lt, config)
 							if err != nil {
-								fmt.Printf("Error rotating log file for %s: %v\n", lt, err)
+								fmt.Printf("Error rotating JSON log file for %s: %v\n", lt, err)
 								continue
 							}
 							
-							fmt.Printf("Rotated log file for %s due to size: %s\n", lt, newFile)
+							fmt.Printf("Rotated JSON log file for %s due to size: %s\n", lt, newFile)
 							currentLogFiles[lt] = newFile
 							fileSizes[lt] = 0
 						}
@@ -306,20 +390,20 @@ func StartContinuousLogging(config LogConfig) {
 			for logType := range config.LogsPerMinute {
 				newFile, err := rotateLogFile(logType, config)
 				if err != nil {
-					fmt.Printf("Error rotating log file for %s: %v\n", logType, err)
+					fmt.Printf("Error rotating JSON log file for %s: %v\n", logType, err)
 					continue
 				}
 				
-				fmt.Printf("Rotated log file for %s at scheduled interval: %s\n", logType, newFile)
+				fmt.Printf("Rotated JSON log file for %s at scheduled interval: %s\n", logType, newFile)
 				currentLogFiles[logType] = newFile
 				fileSizes[logType] = 0
 			}
 			
 		case <-cleanupTicker.C:
 			if err := cleanupOldLogs(config); err != nil {
-				fmt.Printf("Error cleaning up old log files: %v\n", err)
+				fmt.Printf("Error cleaning up old JSON log files: %v\n", err)
 			} else {
-				fmt.Println("Cleaned up old log files")
+				fmt.Println("Cleaned up old JSON log files")
 			}
 			
 		case <-done:

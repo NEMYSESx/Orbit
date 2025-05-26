@@ -35,15 +35,16 @@ class QueryResponse(BaseModel):
     confidence: float
     supporting_documents: Optional[List[Document]] = None
     collections_searched: List[str]
-    topic_detection: Optional[TopicDetectionInfo] = None
+    topic_detection: Optional[List[TopicDetectionInfo]] = None  # Changed to list for multiple topics
 
 @router.post("/query", response_model=QueryResponse)
 async def query(request: QueryRequest):
     """
-    Simplified RAG query flow:
-    1. Search documents (with automatic time prioritization)
-    2. Check if context is relevant using Gemini
-    3. Generate answer from context (prioritizing recent info) or let Gemini answer directly
+    Enhanced RAG query flow:
+    1. Automatically detect relevant collections based on query
+    2. Search across relevant collections (with automatic time prioritization)
+    3. Check if context is relevant using Gemini
+    4. Generate answer from context (prioritizing recent info) or let Gemini answer directly
     """
     try:
         rag_service = RAGService(gemini_api_key=request.gemini_api_key)
@@ -59,19 +60,46 @@ async def query(request: QueryRequest):
                 "topic_detection": None
             }
         
-        topic_info = None
+        topic_info = []
         collections = request.collections_to_search or []
         
         if request.auto_detect_topic and not collections:
             try:
-                topic, confidence = rag_service.search_service._identify_collection(request.query)
-                topic_info = TopicDetectionInfo(identified_topic=topic, confidence=confidence)
+                # Use the new _identify_relevant_collections method
+                relevant_collections = rag_service.search_service._identify_relevant_collections(request.query)
                 
-                collections = [topic] if confidence >= 0.4 else [settings.DEFAULT_COLLECTION_NAME]
+                if relevant_collections:
+                    collections = []
+                    for collection, confidence in relevant_collections:
+                        if confidence >= request.similarity_threshold:
+                            collections.append(collection)
+                            topic_info.append(TopicDetectionInfo(
+                                identified_topic=collection,
+                                confidence=confidence
+                            ))
+                
+                if not collections:
+                    # If no collections meet the threshold, use all available collections
+                    collections = rag_service.search_service._get_available_collections()
+                    
             except Exception as e:
-                collections = [settings.DEFAULT_COLLECTION_NAME]
+                print(f"Error in topic detection: {str(e)}")
+                # Use all available collections as fallback
+                collections = rag_service.search_service._get_available_collections()
         elif not collections:
-            collections = [settings.DEFAULT_COLLECTION_NAME]
+            # If no collections specified and auto_detect is off, use all available
+            collections = rag_service.search_service._get_available_collections()
+        
+        if not collections:
+            return {
+                "question": request.query,
+                "answer": "No collections available to search. Please index some documents first.",
+                "source": "error",
+                "confidence": 0.0,
+                "supporting_documents": None,
+                "collections_searched": [],
+                "topic_detection": topic_info
+            }
         
         result = rag_service.process_query(request.query, collections)
         

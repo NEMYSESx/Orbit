@@ -14,15 +14,15 @@ import (
 	"google.golang.org/api/option"
 )
 
-// Configuration
+
 const (
-	logFilePath      = "/data/synthetic logs/cluster/cluster.log" // Update this to your log file path
-	gcsBucket        = "your-gcs-bucket"           // Update this to your GCS bucket name
-	gcsPrefix        = "logs/"                     // Prefix within the bucket
-	checkInterval    = 10 * time.Second            // How often to check for new logs
-	batchUploadSize  = 5 * 1024 * 1024             // 5 MB - Accumulate this much before uploading
-	stateFile        = ".log_shipper_state"        // File to track what we've already uploaded
-	credentialsFile  = ""                          // Path to service account key file (leave empty to use application default credentials)
+	logFilePath      = "/data/synthetic logs/cluster/cluster.log"
+	gcsBucket        = "your-gcs-bucket"           
+	gcsPrefix        = "logs/"                    
+	checkInterval    = 10 * time.Second            
+	batchUploadSize  = 5 * 1024 * 1024          
+	stateFile        = ".log_shipper_state"       
+	credentialsFile  = ""                         
 )
 
 type LogShipper struct {

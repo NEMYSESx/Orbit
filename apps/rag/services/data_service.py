@@ -14,7 +14,6 @@ from qdrant_client.http import models
 from config import settings
 
 class DataService:
-    
     def __init__(
         self,
         qdrant_client: QdrantClientWrapper = None,

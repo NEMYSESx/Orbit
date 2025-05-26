@@ -1,0 +1,248 @@
+[
+{
+    "timestamp": "2025-05-26T03:10:44.839Z",
+    "level": "NOTICE",
+    "type": "network",
+    "message": "NTP synchronization up with server timeserver.local",
+    "source": "network-generator",
+    "details": {
+      "ntp_server": "timeserver.local",
+      "status": "up"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:10:50.839Z",
+    "level": "WARNING",
+    "type": "network",
+    "message": "High packet loss on ens256: 88%",
+    "source": "network-generator",
+    "details": {
+      "interface": "ens256",
+      "percentage": "88"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:10:56.839Z",
+    "level": "INFO",
+    "type": "network",
+    "message": "Interface ens256 up at 2025-05-26T03:10:56.839Z",
+    "source": "network-generator",
+    "details": {
+      "interface": "ens256",
+      "status": "up"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:02.840Z",
+    "level": "NOTICE",
+    "type": "network",
+    "message": "NTP synchronization flapping with server ntp.hpe.com",
+    "source": "network-generator",
+    "details": {
+      "ntp_server": "ntp.hpe.com",
+      "status": "flapping"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:08.839Z",
+    "level": "WARNING",
+    "type": "network",
+    "message": "High packet loss on ens192: 91%",
+    "source": "network-generator",
+    "details": {
+      "interface": "ens192",
+      "percentage": "91"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:14.839Z",
+    "level": "WARNING",
+    "type": "network",
+    "message": "High packet loss on bond0: 96%",
+    "source": "network-generator",
+    "details": {
+      "interface": "bond0",
+      "percentage": "96"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:20.840Z",
+    "level": "ERROR",
+    "type": "network",
+    "message": "DNS resolution failed for headnode - E1002",
+    "source": "network-generator",
+    "details": {
+      "error_code": "E1002",
+      "hostname": "headnode"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:26.840Z",
+    "level": "ERROR",
+    "type": "network",
+    "message": "DNS resolution failed for headnode - E1001",
+    "source": "network-generator",
+    "details": {
+      "error_code": "E1001",
+      "hostname": "headnode"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:32.839Z",
+    "level": "WARNING",
+    "type": "network",
+    "message": "High packet loss on eth1: 94%",
+    "source": "network-generator",
+    "details": {
+      "interface": "eth1",
+      "percentage": "94"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:38.840Z",
+    "level": "INFO",
+    "type": "network",
+    "message": "Interface ib0 reconfigured at 2025-05-26T03:11:38.840Z",
+    "source": "network-generator",
+    "details": {
+      "interface": "ib0",
+      "status": "reconfigured"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:44.839Z",
+    "level": "INFO",
+    "type": "network",
+    "message": "Interface ib0 up at 2025-05-26T03:11:44.839Z",
+    "source": "network-generator",
+    "details": {
+      "interface": "ib0",
+      "status": "up"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:50.839Z",
+    "level": "WARNING",
+    "type": "network",
+    "message": "High packet loss on ens256: 80%",
+    "source": "network-generator",
+    "details": {
+      "interface": "ens256",
+      "percentage": "80"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:56.839Z",
+    "level": "INFO",
+    "type": "network",
+    "message": "Interface ens192 down at 2025-05-26T03:11:56.839Z",
+    "source": "network-generator",
+    "details": {
+      "interface": "ens192",
+      "status": "down"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:02.840Z",
+    "level": "ERROR",
+    "type": "network",
+    "message": "Cannot establish connection to storage01:21412 - authentication failed",
+    "source": "network-generator",
+    "details": {
+      "error_message": "authentication failed",
+      "hostname": "storage01",
+      "port": "21412"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:08.839Z",
+    "level": "INFO",
+    "type": "network",
+    "message": "Interface eth1 up at 2025-05-26T03:12:08.839Z",
+    "source": "network-generator",
+    "details": {
+      "interface": "eth1",
+      "status": "up"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:14.839Z",
+    "level": "ERROR",
+    "type": "network",
+    "message": "DNS resolution failed for mgmt01 - E1005",
+    "source": "network-generator",
+    "details": {
+      "error_code": "E1005",
+      "hostname": "mgmt01"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:20.840Z",
+    "level": "ERROR",
+    "type": "network",
+    "message": "Cannot establish connection to compute02:36333 - dependency failed",
+    "source": "network-generator",
+    "details": {
+      "error_message": "dependency failed",
+      "hostname": "compute02",
+      "port": "36333"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:26.839Z",
+    "level": "NOTICE",
+    "type": "network",
+    "message": "NTP synchronization reconfigured with server 1.pool.ntp.org",
+    "source": "network-generator",
+    "details": {
+      "ntp_server": "1.pool.ntp.org",
+      "status": "reconfigured"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:32.839Z",
+    "level": "ERROR",
+    "type": "network",
+    "message": "Cannot establish connection to login01:35822 - dependency failed",
+    "source": "network-generator",
+    "details": {
+      "error_message": "dependency failed",
+      "hostname": "login01",
+      "port": "35822"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:38.839Z",
+    "level": "ERROR",
+    "type": "network",
+    "message": "DNS resolution failed for compute02 - E1002",
+    "source": "network-generator",
+    "details": {
+      "error_code": "E1002",
+      "hostname": "compute02"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:44.840Z",
+    "level": "ERROR",
+    "type": "network",
+    "message": "DNS resolution failed for login01 - E1002",
+    "source": "network-generator",
+    "details": {
+      "error_code": "E1002",
+      "hostname": "login01"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:50.840Z",
+    "level": "ERROR",
+    "type": "network",
+    "message": "Cannot establish connection to headnode:38119 - authentication failed",
+    "source": "network-generator",
+    "details": {
+      "error_message": "authentication failed",
+      "hostname": "headnode",
+      "port": "38119"
+    }
+  }
+]

@@ -1,0 +1,476 @@
+[
+{
+    "timestamp": "2025-05-26T03:10:41.839Z",
+    "level": "INFO",
+    "type": "system",
+    "message": "Configuration change detected for nfs",
+    "source": "system-generator",
+    "details": {
+      "service": "nfs"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:10:44.839Z",
+    "level": "NOTICE",
+    "type": "system",
+    "message": "System mariadb stopped at 2025-05-26T03:10:44.839Z",
+    "source": "system-generator",
+    "details": {
+      "action": "stopped",
+      "service": "mariadb"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:10:47.839Z",
+    "level": "WARNING",
+    "type": "system",
+    "message": "sshd resource utilization at 86%",
+    "source": "system-generator",
+    "details": {
+      "percentage": "86",
+      "service": "sshd"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:10:50.839Z",
+    "level": "NOTICE",
+    "type": "system",
+    "message": "System httpd restarted at 2025-05-26T03:10:50.839Z",
+    "source": "system-generator",
+    "details": {
+      "action": "restarted",
+      "service": "httpd"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:10:53.839Z",
+    "level": "ERROR",
+    "type": "system",
+    "message": "Failed to configured cron - E1003: dependency failed",
+    "source": "system-generator",
+    "details": {
+      "action": "configured",
+      "error_code": "E1003",
+      "error_message": "dependency failed",
+      "service": "cron"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:10:56.839Z",
+    "level": "INFO",
+    "type": "system",
+    "message": "Configuration change detected for corosync",
+    "source": "system-generator",
+    "details": {
+      "service": "corosync"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:10:59.840Z",
+    "level": "INFO",
+    "type": "system",
+    "message": "Configuration change detected for mariadb",
+    "source": "system-generator",
+    "details": {
+      "service": "mariadb"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:02.840Z",
+    "level": "INFO",
+    "type": "system",
+    "message": "Configuration change detected for sshd",
+    "source": "system-generator",
+    "details": {
+      "service": "sshd"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:05.840Z",
+    "level": "CRITICAL",
+    "type": "system",
+    "message": "ldap is not responding - attempting restart",
+    "source": "system-generator",
+    "details": {
+      "service": "ldap"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:08.839Z",
+    "level": "WARNING",
+    "type": "system",
+    "message": "pacemaker resource utilization at 92%",
+    "source": "system-generator",
+    "details": {
+      "percentage": "92",
+      "service": "pacemaker"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:11.839Z",
+    "level": "NOTICE",
+    "type": "system",
+    "message": "System pacemaker restarted at 2025-05-26T03:11:11.839Z",
+    "source": "system-generator",
+    "details": {
+      "action": "restarted",
+      "service": "pacemaker"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:14.839Z",
+    "level": "NOTICE",
+    "type": "system",
+    "message": "System cron configured at 2025-05-26T03:11:14.839Z",
+    "source": "system-generator",
+    "details": {
+      "action": "configured",
+      "service": "cron"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:17.840Z",
+    "level": "CRITICAL",
+    "type": "system",
+    "message": "ldap is not responding - attempting restart",
+    "source": "system-generator",
+    "details": {
+      "service": "ldap"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:20.840Z",
+    "level": "INFO",
+    "type": "system",
+    "message": "Configuration change detected for httpd",
+    "source": "system-generator",
+    "details": {
+      "service": "httpd"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:23.839Z",
+    "level": "INFO",
+    "type": "system",
+    "message": "Configuration change detected for corosync",
+    "source": "system-generator",
+    "details": {
+      "service": "corosync"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:26.840Z",
+    "level": "NOTICE",
+    "type": "system",
+    "message": "System sshd failed at 2025-05-26T03:11:26.840Z",
+    "source": "system-generator",
+    "details": {
+      "action": "failed",
+      "service": "sshd"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:29.839Z",
+    "level": "NOTICE",
+    "type": "system",
+    "message": "System ldap configured at 2025-05-26T03:11:29.839Z",
+    "source": "system-generator",
+    "details": {
+      "action": "configured",
+      "service": "ldap"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:32.839Z",
+    "level": "CRITICAL",
+    "type": "system",
+    "message": "corosync is not responding - attempting restart",
+    "source": "system-generator",
+    "details": {
+      "service": "corosync"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:35.839Z",
+    "level": "CRITICAL",
+    "type": "system",
+    "message": "pacemaker is not responding - attempting restart",
+    "source": "system-generator",
+    "details": {
+      "service": "pacemaker"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:38.840Z",
+    "level": "WARNING",
+    "type": "system",
+    "message": "corosync resource utilization at 83%",
+    "source": "system-generator",
+    "details": {
+      "percentage": "83",
+      "service": "corosync"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:41.839Z",
+    "level": "NOTICE",
+    "type": "system",
+    "message": "System httpd restarted at 2025-05-26T03:11:41.839Z",
+    "source": "system-generator",
+    "details": {
+      "action": "restarted",
+      "service": "httpd"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:44.839Z",
+    "level": "NOTICE",
+    "type": "system",
+    "message": "System httpd started at 2025-05-26T03:11:44.839Z",
+    "source": "system-generator",
+    "details": {
+      "action": "started",
+      "service": "httpd"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:47.839Z",
+    "level": "CRITICAL",
+    "type": "system",
+    "message": "mariadb is not responding - attempting restart",
+    "source": "system-generator",
+    "details": {
+      "service": "mariadb"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:50.839Z",
+    "level": "CRITICAL",
+    "type": "system",
+    "message": "httpd is not responding - attempting restart",
+    "source": "system-generator",
+    "details": {
+      "service": "httpd"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:53.840Z",
+    "level": "ERROR",
+    "type": "system",
+    "message": "Failed to stopped mariadb - E1003: insufficient permissions",
+    "source": "system-generator",
+    "details": {
+      "action": "stopped",
+      "error_code": "E1003",
+      "error_message": "insufficient permissions",
+      "service": "mariadb"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:56.839Z",
+    "level": "NOTICE",
+    "type": "system",
+    "message": "System ldap configured at 2025-05-26T03:11:56.839Z",
+    "source": "system-generator",
+    "details": {
+      "action": "configured",
+      "service": "ldap"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:11:59.839Z",
+    "level": "INFO",
+    "type": "system",
+    "message": "Configuration change detected for mariadb",
+    "source": "system-generator",
+    "details": {
+      "service": "mariadb"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:02.840Z",
+    "level": "ERROR",
+    "type": "system",
+    "message": "Failed to restarted nfs - E1001: timeout exceeded",
+    "source": "system-generator",
+    "details": {
+      "action": "restarted",
+      "error_code": "E1001",
+      "error_message": "timeout exceeded",
+      "service": "nfs"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:05.839Z",
+    "level": "INFO",
+    "type": "system",
+    "message": "Configuration change detected for httpd",
+    "source": "system-generator",
+    "details": {
+      "service": "httpd"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:08.839Z",
+    "level": "INFO",
+    "type": "system",
+    "message": "Configuration change detected for ldap",
+    "source": "system-generator",
+    "details": {
+      "service": "ldap"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:11.839Z",
+    "level": "ERROR",
+    "type": "system",
+    "message": "Failed to stopped ldap - E1004: invalid configuration",
+    "source": "system-generator",
+    "details": {
+      "action": "stopped",
+      "error_code": "E1004",
+      "error_message": "invalid configuration",
+      "service": "ldap"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:14.839Z",
+    "level": "WARNING",
+    "type": "system",
+    "message": "cron resource utilization at 97%",
+    "source": "system-generator",
+    "details": {
+      "percentage": "97",
+      "service": "cron"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:17.839Z",
+    "level": "ERROR",
+    "type": "system",
+    "message": "Failed to started ldap - E1001: resource unavailable",
+    "source": "system-generator",
+    "details": {
+      "action": "started",
+      "error_code": "E1001",
+      "error_message": "resource unavailable",
+      "service": "ldap"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:20.840Z",
+    "level": "NOTICE",
+    "type": "system",
+    "message": "System corosync restarted at 2025-05-26T03:12:20.840Z",
+    "source": "system-generator",
+    "details": {
+      "action": "restarted",
+      "service": "corosync"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:23.839Z",
+    "level": "INFO",
+    "type": "system",
+    "message": "Configuration change detected for cron",
+    "source": "system-generator",
+    "details": {
+      "service": "cron"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:26.839Z",
+    "level": "CRITICAL",
+    "type": "system",
+    "message": "nfs is not responding - attempting restart",
+    "source": "system-generator",
+    "details": {
+      "service": "nfs"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:29.839Z",
+    "level": "CRITICAL",
+    "type": "system",
+    "message": "httpd is not responding - attempting restart",
+    "source": "system-generator",
+    "details": {
+      "service": "httpd"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:32.839Z",
+    "level": "NOTICE",
+    "type": "system",
+    "message": "System sshd stopped at 2025-05-26T03:12:32.839Z",
+    "source": "system-generator",
+    "details": {
+      "action": "stopped",
+      "service": "sshd"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:35.839Z",
+    "level": "CRITICAL",
+    "type": "system",
+    "message": "nfs is not responding - attempting restart",
+    "source": "system-generator",
+    "details": {
+      "service": "nfs"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:38.839Z",
+    "level": "WARNING",
+    "type": "system",
+    "message": "mariadb resource utilization at 83%",
+    "source": "system-generator",
+    "details": {
+      "percentage": "83",
+      "service": "mariadb"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:41.840Z",
+    "level": "WARNING",
+    "type": "system",
+    "message": "nfs resource utilization at 99%",
+    "source": "system-generator",
+    "details": {
+      "percentage": "99",
+      "service": "nfs"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:44.840Z",
+    "level": "CRITICAL",
+    "type": "system",
+    "message": "corosync is not responding - attempting restart",
+    "source": "system-generator",
+    "details": {
+      "service": "corosync"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:47.839Z",
+    "level": "WARNING",
+    "type": "system",
+    "message": "sshd resource utilization at 80%",
+    "source": "system-generator",
+    "details": {
+      "percentage": "80",
+      "service": "sshd"
+    }
+  },
+{
+    "timestamp": "2025-05-26T03:12:50.840Z",
+    "level": "NOTICE",
+    "type": "system",
+    "message": "System httpd configured at 2025-05-26T03:12:50.840Z",
+    "source": "system-generator",
+    "details": {
+      "action": "configured",
+      "service": "httpd"
+    }
+  }
+]
