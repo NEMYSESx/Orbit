@@ -1,0 +1,28 @@
+.app-container {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background-color: #ffffff;
+  position: relative;
+}
+
+.sidebar-container {
+  width: 250px;
+  border-right: 1px solid #e5e5e5;
+  background-color: #ffffff;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 100;
+}
+
+.main-content {
+  flex: 1;
+  margin-left: 250px;
+  min-height: 100vh;
+  background-color: #ffffff;
+  overflow-y: auto;
+  position: relative;
+  z-index: 1;
+}

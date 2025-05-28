@@ -1,23 +1,23 @@
 :root {
-  --background-color: #e3f2fd;
-  --nav-text-color: #585858;
-  --greet-text-color: #737474;
+  --background-color: #ffffff;
+  --nav-text-color: #1a1a1a;
+  --greet-text-color: #2a2a2a;
   --card-background-color: #f2f9fe;
   --card-hover-background-color: #dfe4ea;
   --card-gradient: linear-gradient(145deg, #f9fcff, #dfe7ef);
-  --card-border-color: rgba(255, 255, 255, 0.4);
+  --card-border-color: rgba(0, 0, 0, 0.1);
   --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  --search-box-background-color: #d1ebfd;
+  --search-box-background-color: #ffffff;
   --user-message-background-color: #4b90ff;
-  --user-message-text-color: #f8f9fa;
+  --user-message-text-color: #ffffff;
   --bot-message-background-color: #f1f1f1;
   --loader-primary-color: #3b82f6;
   --loader-secondary-color: #2563eb;
   --code-text-color: #000000;
   --transparent-color: transparent;
-  --text-color: black;
-  --input-color: black;
-  --logo-color: black;
+  --text-color: #1a1a1a;
+  --input-color: #1a1a1a;
+  --logo-color: #1a1a1a;
 }
 
 .dark-mode {
@@ -57,6 +57,7 @@ body {
   flex: 1;
   min-height: 100vh;
   position: relative;
+  background-color: var(--background-color);
 }
 .nav p {
   font-size: 1.6rem;

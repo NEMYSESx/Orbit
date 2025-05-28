@@ -30,7 +30,7 @@ const generateNewChat = async () => {
   }
 };
 
-const ContextProvider = (props) => {
+export const ContextProvider = (props) => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [showResult, setShowResult] = useState(false);

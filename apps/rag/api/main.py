@@ -12,14 +12,13 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import data_router, search_router, rag_router
-from config import settings
 
 app = FastAPI(
     title="RAG API",
-    description="API for Retrieval-Augmented Generation with intelligent chunking",
+    description="API for Retrieval-Augmented Generation Application",
     version="0.1.0",
 )
 
@@ -37,23 +36,20 @@ app.include_router(rag_router.router)
 
 @app.get("/")
 async def root():
-    """Root endpoint with API information."""
     return {
         "name": "RAG API",
         "version": "0.1.0",
-        "description": "API for Retrieval-Augmented Generation with intelligent chunking",
+        "description": "API for Retrieval-Augmented Generation Application",
         "endpoints": {
             "data": "/data/push",
             "search": "/search",
-            "rag": "/rag/answer"
+            "rag": "/rag/query"
         }
     }
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
     return {"status": "healthy"}
 
 if __name__ == "__main__":    
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000,reload=True)

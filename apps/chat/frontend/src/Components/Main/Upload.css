@@ -1,0 +1,173 @@
+.upload-container {
+  min-height: 100vh;
+  width: 100%;
+  padding: 2rem;
+  background-color: #ffffff;
+}
+
+.upload-content {
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.upload-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+}
+
+.upload-title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  background: linear-gradient(to right, #7c3aed, #2563eb);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.upload-description {
+  color: #4b5563;
+  font-size: 1.125rem;
+  margin-bottom: 2rem;
+}
+
+.drop-zone {
+  border: 3px dashed #e5e7eb;
+  border-radius: 1rem;
+  padding: 3rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.drop-zone:hover {
+  border-color: #3b82f6;
+  background-color: #f0f9ff;
+}
+
+.drop-zone.drag-over {
+  border-color: #3b82f6;
+  background-color: #f0f9ff;
+  transform: scale(1.02);
+}
+
+.drop-zone-icon {
+  font-size: 3rem;
+  color: #3b82f6;
+  margin-bottom: 1rem;
+}
+
+.drop-zone-text {
+  font-size: 1.25rem;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.drop-zone-subtext {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.hidden-input {
+  display: none;
+}
+
+.upload-button {
+  background: linear-gradient(to right, #3b82f6, #7c3aed);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 1rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+.upload-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.upload-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.spinner {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 3px solid white;
+  border-top: 3px solid transparent;
+  border-radius: 50%;
+  margin-right: 0.75rem;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.supported-formats {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.status-message {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  font-weight: 500;
+}
+
+.status-message.processing {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+}
+
+.status-message.success {
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #10b981;
+}
+
+.status-message.error {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
+
+.file-info {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: #f9fafb;
+  border-radius: 0.75rem;
+}
+
+.file-info-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.file-info-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.file-info-content p span {
+  font-weight: 500;
+  margin-right: 0.5rem;
+} 

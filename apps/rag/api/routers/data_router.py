@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 from services.data_service import DataService
+from uuid import uuid4, UUID
 
 router = APIRouter(
     prefix="/data",
@@ -15,7 +16,7 @@ router = APIRouter(
 )
 
 class DocumentItem(BaseModel):
-    id: Optional[Any] = None
+    id: UUID = Field(default_factory=uuid4)
     text: str
     metadata: Dict[str, Any] = Field(default_factory=dict)
     
