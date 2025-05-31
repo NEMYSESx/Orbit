@@ -4,11 +4,17 @@ import { assets } from "../../assets/assets";
 import Card from "./Card";
 import { Context } from "../../Context/Context";
 
+// Add this array for available reactions
+const REACTIONS = ["👍", "❤️", "😂", "😮", "🎉"];
+
 const Main = () => {
   const theme = localStorage.getItem("theme");
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isListening, setIsListening] = useState(false);
+  const [speakingIndex, setSpeakingIndex] = useState(null);
+  const [messageReactions, setMessageReactions] = useState({}); // { [index]: emoji }
   const recognitionRef = useRef(null);
+  const synthRef = useRef(window.speechSynthesis);
 
   useEffect(() => {
     if (theme === "dark") {
@@ -89,6 +95,29 @@ const Main = () => {
     });
   };
 
+  const speakText = (text, index) => {
+    if (synthRef.current.speaking) {
+      synthRef.current.cancel();
+    }
+    const utter = new window.SpeechSynthesisUtterance(text.replace(/<[^>]+>/g, ""));
+    utter.onend = () => setSpeakingIndex(null);
+    synthRef.current.speak(utter);
+    setSpeakingIndex(index);
+  };
+
+  const stopSpeaking = () => {
+    synthRef.current.cancel();
+    setSpeakingIndex(null);
+  };
+
+  // Handler to set a reaction for a message
+  const handleReaction = (msgIdx, emoji) => {
+    setMessageReactions((prev) => ({
+      ...prev,
+      [msgIdx]: prev[msgIdx] === emoji ? null : emoji, // toggle reaction
+    }));
+  };
+
   return (
     <div className={`main`}>
       <div className="nav">
@@ -138,12 +167,128 @@ const Main = () => {
                         <p
                           dangerouslySetInnerHTML={{ __html: message.text }}
                         ></p>
+                        {/* --- Single emoji button, show all emoji options in a menu --- */}
+                        <div style={{ margin: "8px 0 0 0", display: "flex", alignItems: "center", position: "relative" }}>
+                          <button
+                            onClick={() =>
+                              setMessageReactions((prev) => ({
+                                ...prev,
+                                [`show_${index}`]: !prev[`show_${index}`],
+                              }))
+                            }
+                            style={{
+                              background: "#f0f0f0",
+                              border: "none",
+                              fontSize: "1.3rem",
+                              cursor: "pointer",
+                              marginRight: "4px",
+                              padding: "2px 10px",
+                              borderRadius: "8px",
+                              transition: "background 0.2s",
+                              fontWeight: "bold"
+                            }}
+                            aria-label="React"
+                          >
+                            😊
+                          </button>
+                          {/* Emoji menu */}
+                          {messageReactions[`show_${index}`] && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: "36px",
+                                left: "0",
+                                background: "#fff",
+                                border: "1px solid #eee",
+                                borderRadius: "10px",
+                                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                                padding: "6px 10px",
+                                zIndex: 10,
+                                display: "flex",
+                                gap: "6px"
+                              }}
+                            >
+                              {REACTIONS.map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  onClick={() => {
+                                    setMessageReactions((prev) => ({
+                                      ...prev,
+                                      [index]: prev[index] === emoji ? null : emoji,
+                                      [`show_${index}`]: false,
+                                    }));
+                                  }}
+                                  style={{
+                                    background: messageReactions[index] === emoji ? "#e6f7ff" : "transparent",
+                                    border: "none",
+                                    fontSize: "1.3rem",
+                                    cursor: "pointer",
+                                    padding: "2px 6px",
+                                    borderRadius: "8px",
+                                    transition: "background 0.2s"
+                                  }}
+                                  aria-label={`React with ${emoji}`}
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {messageReactions[index] && (
+                            <span style={{ marginLeft: "8px", fontSize: "1.2rem" }}>
+                              {messageReactions[index]}
+                            </span>
+                          )}
+                        </div>
+                        {/* --- End Reactions UI --- */}
+                        <div style={{ marginTop: "8px" }}>
+                          {speakingIndex === index ? (
+                            <button
+                              onClick={stopSpeaking}
+                              style={{
+                                background: "#ff4d4f",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "20px",
+                                padding: "6px 18px",
+                                fontWeight: "bold",
+                                cursor: "pointer",
+                                boxShadow: "0 2px 8px rgba(255,77,79,0.12)",
+                                transition: "background 0.2s",
+                                marginRight: "8px"
+                              }}
+                            >
+                              <span role="img" aria-label="Stop" style={{ marginRight: "6px" }}>🛑</span>
+                              Stop
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => speakText(message.text, index)}
+                              style={{
+                                background: "#1677ff",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "20px",
+                                padding: "6px 18px",
+                                fontWeight: "bold",
+                                cursor: "pointer",
+                                boxShadow: "0 2px 8px rgba(22,119,255,0.12)",
+                                transition: "background 0.2s",
+                                marginRight: "8px"
+                              }}
+                            >
+                              <span role="img" aria-label="Speak" style={{ marginRight: "6px" }}>🔊</span>
+                              Speak
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
                 ) : (
                   <>
                     <p>{message.text}</p>
+                    {/* No reactions for user messages */}
                   </>
                 )}
               </div>
