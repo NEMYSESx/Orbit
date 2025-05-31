@@ -8,7 +8,9 @@ const Main = () => {
   const theme = localStorage.getItem("theme");
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isListening, setIsListening] = useState(false);
+  const [speakingIndex, setSpeakingIndex] = useState(null);
   const recognitionRef = useRef(null);
+  const synthRef = useRef(window.speechSynthesis);
 
   useEffect(() => {
     if (theme === "dark") {
@@ -89,6 +91,21 @@ const Main = () => {
     });
   };
 
+  const speakText = (text, index) => {
+    if (synthRef.current.speaking) {
+      synthRef.current.cancel();
+    }
+    const utter = new window.SpeechSynthesisUtterance(text.replace(/<[^>]+>/g, ""));
+    utter.onend = () => setSpeakingIndex(null);
+    synthRef.current.speak(utter);
+    setSpeakingIndex(index);
+  };
+
+  const stopSpeaking = () => {
+    synthRef.current.cancel();
+    setSpeakingIndex(null);
+  };
+
   return (
     <div className={`main`}>
       <div className="nav">
@@ -138,6 +155,47 @@ const Main = () => {
                         <p
                           dangerouslySetInnerHTML={{ __html: message.text }}
                         ></p>
+                        <div style={{ marginTop: "8px" }}>
+                          {speakingIndex === index ? (
+                            <button
+                              onClick={stopSpeaking}
+                              style={{
+                                background: "#ff4d4f",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "20px",
+                                padding: "6px 18px",
+                                fontWeight: "bold",
+                                cursor: "pointer",
+                                boxShadow: "0 2px 8px rgba(255,77,79,0.12)",
+                                transition: "background 0.2s",
+                                marginRight: "8px"
+                              }}
+                            >
+                              <span role="img" aria-label="Stop" style={{ marginRight: "6px" }}>🛑</span>
+                              Stop
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => speakText(message.text, index)}
+                              style={{
+                                background: "#1677ff",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "20px",
+                                padding: "6px 18px",
+                                fontWeight: "bold",
+                                cursor: "pointer",
+                                boxShadow: "0 2px 8px rgba(22,119,255,0.12)",
+                                transition: "background 0.2s",
+                                marginRight: "8px"
+                              }}
+                            >
+                              <span role="img" aria-label="Speak" style={{ marginRight: "6px" }}>🔊</span>
+                              Speak
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
