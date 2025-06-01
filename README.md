@@ -1,6 +1,6 @@
 ## 📺 Demo
 
 <video width="100%" controls>
-  <source src="WhatsApp Video 2025-06-01 at 5.10.37 PM.mp4" type="video/mp4">
+  <source src="demo.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
