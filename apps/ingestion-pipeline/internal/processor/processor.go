@@ -13,6 +13,7 @@ import (
 	"github.com/NEMYSESx/Orbit/apps/ingestion-pipeline/internal/text"
 	"github.com/NEMYSESx/Orbit/apps/ingestion-pipeline/internal/tika"
 	"github.com/NEMYSESx/Orbit/apps/ingestion-pipeline/internal/validator"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
 type DocumentProcessor struct {
@@ -88,12 +89,13 @@ func (dp *DocumentProcessor) ProcessDocument(ctx context.Context, file multipart
 			fmt.Printf("Agentic chunking failed for %s: %v\n", header.Filename, err)
 		} else {
 			chunks = chunkOutputs
+			kafkaConsumer(chunks,"documents")
 			fmt.Printf("Successfully created %d chunks for document: %s\n", len(chunks), header.Filename)
 		}
 	}
 
 	fmt.Printf("Successfully processed document: %s\n", header.Filename)
-printChunksStructured(chunks)
+	printChunksStructured(chunks)
 	result := &models.ProcessResult{
 		ExtractedContent: extracted,
 		Chunks:           chunks,
@@ -113,7 +115,7 @@ func (dp *DocumentProcessor) ProcessDocumentWithChunking(ctx context.Context, fi
 }
 
 func (dp *DocumentProcessor) GetChunkingStatistics(result *models.ProcessResult) map[string]interface{} {
-	if result.Chunks == nil || len(result.Chunks) == 0 {
+	if len(result.Chunks) == 0 {
 		return map[string]interface{}{
 			"total_chunks": 0,
 			"chunking_enabled": false,
@@ -158,4 +160,23 @@ func printChunksStructured(chunks interface{}) {
         return
     }
     fmt.Println("The output is:\n", string(prettyJSON))
+}
+
+func kafkaConsumer(data []models.ChunkOutput, topic string){
+	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers":"localhost:9092"})
+	if err != nil{
+		fmt.Printf("Failed to send data to consumer%v",err)
+	}
+
+	err = p.Produce(&kafka.Message{
+		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
+		Value:          []byte(fmt.Sprintf("%v", data)),
+	}, nil)
+
+	if err != nil {
+		fmt.Printf("Produce error: %v\n", err)
+	}
+
+	p.Flush(500)
+	
 }
