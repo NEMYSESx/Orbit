@@ -8,7 +8,7 @@ config = {
 }
 
 consumer = Consumer(config)
-consumer.subscribe(['json-data'])
+consumer.subscribe(['documents'])
 
 print("Checking for messages in topic: json-data...")
 
@@ -20,6 +20,6 @@ elif msg.error():
     print(f"Kafka error: {msg.error()}")
 else:
     print("Data found!")
-    print("Message:", json.loads(msg.value().decode('utf-8')))
+    print("Message:", json.loads(msg.value()))
 
 consumer.close()
