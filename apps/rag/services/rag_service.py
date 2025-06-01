@@ -27,6 +27,21 @@ class QdrantVectorStoreWrapper(VectorStore):
     def __init__(self, search_service: SearchService):
         self.search_service = search_service
     
+    @classmethod
+    def from_texts(
+        cls,
+        texts: List[str],
+        embedding: Embeddings,
+        metadatas: Optional[List[dict]] = None,
+        **kwargs: Any
+    ) -> "QdrantVectorStoreWrapper":
+        """Create a Qdrant vector store from texts."""
+        search_service = kwargs.get('search_service')
+        if not search_service:
+            raise ValueError("search_service must be provided")
+        
+        return cls(search_service)
+    
     def similarity_search(
         self, 
         query: str, 
@@ -84,6 +99,7 @@ class RAGService:
         gemini_api_key: Optional[str] = None
     ):
         self.gemini_api_key = gemini_api_key
+        self.search_service = None
         
         if search_service:
             self.search_service = search_service
@@ -97,6 +113,11 @@ class RAGService:
                 qdrant_client=qdrant_client, 
                 embedding_model=embedding_model
             )
+        
+        self.vector_store = None
+        self.llm = None
+        self.context_answer_prompt = None
+        self.json_parser = None
         
         self._setup_langchain_components()
     
