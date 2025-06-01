@@ -15,7 +15,7 @@ class SearchResult(BaseModel):
     id: Any
     score: float
     text: str
-    collection: str  # Added to show which collection the result came from
+    collection: str  
     timestamp: Optional[datetime] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
@@ -34,23 +34,14 @@ class SearchResponse(BaseModel):
     query: str
     results: List[SearchResult]
     count: int
-    relevant_collections: List[CollectionInfo]  # Changed from selected_collection to show all relevant collections
+    relevant_collections: List[CollectionInfo]  
 
 @router.post("/", response_model=SearchResponse)
 async def search(
     request: SearchRequest,
     search_service: SearchService = Depends(lambda: SearchService())
 ):
-    """
-    Search across collections with automatic relevance detection.
-    
-    - If collection_name is not provided, searches across all relevant collections
-    - Results are combined and ranked by relevance score
-    - time_priority (0.0-1.0) controls the balance between relevance and recency
-    - When multiple documents have similar relevance, more recent ones are prioritized
-    """
     try:
-        # Get relevant collections first
         relevant_collections = []
         if not request.collection_name:
             collection_scores = search_service._identify_relevant_collections(request.query)
@@ -59,7 +50,6 @@ async def search(
                 for name, score in collection_scores
             ]
         
-        # Perform the search
         results = search_service.search(
             query_text=request.query,
             collection_name=request.collection_name,

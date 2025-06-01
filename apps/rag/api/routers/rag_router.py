@@ -35,17 +35,10 @@ class QueryResponse(BaseModel):
     confidence: float
     supporting_documents: Optional[List[Document]] = None
     collections_searched: List[str]
-    topic_detection: Optional[List[TopicDetectionInfo]] = None  # Changed to list for multiple topics
+    topic_detection: Optional[List[TopicDetectionInfo]] = None 
 
 @router.post("/query", response_model=QueryResponse)
 async def query(request: QueryRequest):
-    """
-    Enhanced RAG query flow:
-    1. Automatically detect relevant collections based on query
-    2. Search across relevant collections (with automatic time prioritization)
-    3. Check if context is relevant using Gemini
-    4. Generate answer from context (prioritizing recent info) or let Gemini answer directly
-    """
     try:
         rag_service = RAGService(gemini_api_key=request.gemini_api_key)
         
@@ -65,7 +58,6 @@ async def query(request: QueryRequest):
         
         if request.auto_detect_topic and not collections:
             try:
-                # Use the new _identify_relevant_collections method
                 relevant_collections = rag_service.search_service._identify_relevant_collections(request.query)
                 
                 if relevant_collections:
@@ -79,15 +71,12 @@ async def query(request: QueryRequest):
                             ))
                 
                 if not collections:
-                    # If no collections meet the threshold, use all available collections
                     collections = rag_service.search_service._get_available_collections()
                     
             except Exception as e:
                 print(f"Error in topic detection: {str(e)}")
-                # Use all available collections as fallback
                 collections = rag_service.search_service._get_available_collections()
         elif not collections:
-            # If no collections specified and auto_detect is off, use all available
             collections = rag_service.search_service._get_available_collections()
         
         if not collections:

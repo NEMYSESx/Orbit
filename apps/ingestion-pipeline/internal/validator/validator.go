@@ -2,11 +2,12 @@ package validator
 
 import (
 	"fmt"
+	"mime/multipart"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/NEMYSESx/orbit/apps/ingestion-pipeline/internal/config"
+	"github.com/NEMYSESx/Orbit/apps/ingestion-pipeline/internal/config"
 )
 
 type FileValidator struct {
@@ -19,50 +20,32 @@ func NewFileValidator(cfg *config.ProcessingConfig) *FileValidator {
 	}
 }
 
-func (fv *FileValidator) Validate(filePath string) error {
-	fileInfo, err := os.Stat(filePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("file does not exist: %s", filePath)
-		}
-		return fmt.Errorf("cannot access file: %w", err)
-	}
-
-	if fileInfo.IsDir() {
-		return fmt.Errorf("path is a directory, not a file: %s", filePath)
-	}
-
+func (fv *FileValidator) Validate(file multipart.File, header multipart.FileHeader) error {
 	maxSizeBytes := fv.config.MaxFileSize * 1024 * 1024 
-	if fileInfo.Size() > maxSizeBytes {
+
+	if header.Size > maxSizeBytes {
 		return fmt.Errorf("file size (%d bytes) exceeds maximum allowed size (%d MB)", 
-			fileInfo.Size(), fv.config.MaxFileSize)
+			header.Size, fv.config.MaxFileSize)
 	}
 
-	if !fv.IsSupported(filePath) {
-		return fmt.Errorf("unsupported file format: %s", filepath.Ext(filePath))
+	if !fv.IsSupported(header.Filename) {
+		return fmt.Errorf("unsupported file format: %s", filepath.Ext(header.Filename))
 	}
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		return fmt.Errorf("cannot open file for reading: %w", err)
-	}
-	file.Close()
 
 	return nil
 }
 
-func (fv *FileValidator) IsSupported(filePath string) bool {
-	ext := strings.ToLower(filepath.Ext(filePath))
+func (fv *FileValidator) IsSupported(filename string) bool {
+	ext := strings.ToLower(filepath.Ext(filename))
 	if ext != "" && ext[0] == '.' {
-		ext = ext[1:] 
+		ext = ext[1:]
 	}
 
-	for _, supportedFormat := range fv.config.SupportedFormats {
-		if strings.ToLower(supportedFormat) == ext {
+	for _, supported := range fv.config.SupportedFormats {
+		if strings.ToLower(supported) == ext {
 			return true
 		}
 	}
-
 	return false
 }
 
@@ -71,7 +54,7 @@ func (fv *FileValidator) GetSupportedFormats() []string {
 }
 
 func (fv *FileValidator) ValidateDirectory(dirPath string) error {
-	fileInfo, err := os.Stat(dirPath)
+	info, err := os.Stat(dirPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("directory does not exist: %s", dirPath)
@@ -79,15 +62,9 @@ func (fv *FileValidator) ValidateDirectory(dirPath string) error {
 		return fmt.Errorf("cannot access directory: %w", err)
 	}
 
-	if !fileInfo.IsDir() {
+	if !info.IsDir() {
 		return fmt.Errorf("path is not a directory: %s", dirPath)
 	}
-
-	dir, err := os.Open(dirPath)
-	if err != nil {
-		return fmt.Errorf("cannot open directory for reading: %w", err)
-	}
-	dir.Close()
 
 	return nil
 }

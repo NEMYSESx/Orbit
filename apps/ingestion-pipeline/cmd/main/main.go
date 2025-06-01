@@ -1,137 +1,130 @@
 package main
 
 import (
-	"context"
-	"flag"
+	"encoding/json"
 	"fmt"
 	"log"
-	"os"
+	"net/http"
+	"time"
 
-	"github.com/NEMYSESx/orbit/apps/ingestion-pipeline/internal/chunking"
-	"github.com/NEMYSESx/orbit/apps/ingestion-pipeline/internal/config"
-	"github.com/NEMYSESx/orbit/apps/ingestion-pipeline/internal/models"
-	"github.com/NEMYSESx/orbit/apps/ingestion-pipeline/internal/processor"
-	"github.com/NEMYSESx/orbit/apps/ingestion-pipeline/internal/storage"
+	"github.com/NEMYSESx/Orbit/apps/ingestion-pipeline/internal/config"
+	"github.com/NEMYSESx/Orbit/apps/ingestion-pipeline/internal/processor"
 )
 
+type APIResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+type ProcessingResponse struct {
+	FileName       string `json:"fileName"`
+	ProcessingTime string `json:"processingTime"`
+	Data           any    `json:"data"`
+}
+
 func main() {
-	var (
-		configPath     = flag.String("config", "config.json", "Path to configuration file")
-		filePath       = flag.String("file", "", "Path to file to process")
-		dirPath        = flag.String("dir", "", "Path to directory to process")
-		batchSize      = flag.Int("batch", 5, "Batch size for concurrent processing")
-		enableChunking = flag.Bool("chunk", false, "Enable agentic chunking")
-	)
-	flag.Parse()
-
-	if *filePath == "" && *dirPath == "" {
-		log.Fatal("Either -file or -dir must be specified")
-	}
-
-	cfg, err := config.Load(*configPath)
+	cfg, err := config.Load("config.json")
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	proc, err := processor.New(cfg)
+	docProcessor, err := processor.New(cfg)
 	if err != nil {
-		log.Fatalf("Failed to create processor: %v", err)
+		log.Fatalf("Failed to create document processor: %v", err)
 	}
 
-	ctx := context.Background()
+	http.HandleFunc("/receive", handleReceiveDocument(docProcessor, cfg))
 
-	var chunker *chunking.AgenticChunker
-	var chunkingStorage *chunking.ChunkingStorageManager
+	port := "3001"
+	log.Printf("Starting server on port %s", port)
+	log.Printf("Document upload endpoint: http://localhost:%s/receive", port)
+	log.Printf("Max file size: %d MB", cfg.Processing.MaxFileSize)
 
-	if *enableChunking {
-		chunkingConfig := chunking.DefaultConfig()
-
-		if apiKey := os.Getenv("GEMINI_API_KEY"); apiKey != "" {
-			chunkingConfig.GeminiAPIKey = apiKey
-		} else {
-			log.Fatal("GEMINI_API_KEY environment variable is required for chunking")
-		}
-
-		chunker = chunking.NewAgenticChunker(chunkingConfig)
-
-		storageManager := storage.NewManager(&cfg.Storage)
-		chunkingStorage = chunking.NewChunkingStorageManager(storageManager, chunkingConfig)
-	}
-
-	if *filePath != "" {
-		if err := processFile(ctx, proc, chunker, chunkingStorage, *filePath, *enableChunking); err != nil {
-			log.Fatalf("Failed to process document: %v", err)
-		}
-		fmt.Println("Document processed successfully!")
-	} else {
-		if err := processDirectory(ctx, proc, chunker, chunkingStorage, *dirPath, *batchSize, *enableChunking); err != nil {
-			log.Fatalf("Failed to process directory: %v", err)
-		}
-		fmt.Println("Directory processed successfully!")
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		log.Fatalf("Server failed to start: %v", err)
 	}
 }
 
-func processFile(ctx context.Context, proc *processor.DocumentProcessor, chunker *chunking.AgenticChunker,
-	chunkingStorage *chunking.ChunkingStorageManager, filePath string, enableChunking bool) error {
+func handleReceiveDocument(docProcessor *processor.DocumentProcessor, cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-	if err := proc.ProcessDocument(ctx, filePath); err != nil {
-		return fmt.Errorf("failed to extract document: %w", err)
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method != "POST" {
+			sendErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		startTime := time.Now()
+
+		// Add file size validation
+		err := r.ParseMultipartForm(int64(cfg.Processing.MaxFileSize) << 20) // Convert MB to bytes
+		if err != nil {
+			log.Printf("Failed to parse multipart form: %v", err)
+			sendErrorResponse(w, "File too large or invalid form data", http.StatusBadRequest)
+			return
+		}
+
+		file, header, err := r.FormFile("document")
+		if err != nil {
+			log.Printf("Failed to get file from form: %v", err)
+			sendErrorResponse(w, "No document file found in request", http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+
+		result, err := docProcessor.ProcessDocument(r.Context(), file, header)
+		if err != nil {
+			log.Printf("Failed to process document: %v", err)
+			sendErrorResponse(w, fmt.Sprintf("Failed to process document: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		processingResponse := ProcessingResponse{
+			FileName:       header.Filename,
+			ProcessingTime: time.Since(startTime).String(),
+			Data:           result,
+		}
+
+		log.Printf("Successfully processed document: %s", header.Filename)
+
+		sendSuccessResponse(w, "Document processed successfully", processingResponse)
 	}
-
-	if !enableChunking {
-		return nil
-	}
-
-	extractedContent, err := loadExtractedContent(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to load extracted content: %w", err)
-	}
-
-	chunkedDoc, err := chunker.ProcessDocument(ctx, extractedContent)
-	if err != nil {
-		return fmt.Errorf("failed to chunk document: %w", err)
-	}
-
-	savedPath, err := chunkingStorage.SaveChunkedDocument(chunkedDoc)
-	if err != nil {
-		return fmt.Errorf("failed to save chunked document: %w", err)
-	}
-
-	log.Printf("Chunked document saved to: %s", savedPath)
-	log.Printf("Processing summary: %d chunks, %.2f avg confidence, %v duration",
-		chunkedDoc.ProcessingSummary.TotalChunks,
-		chunkedDoc.ProcessingSummary.AverageConfidence,
-		chunkedDoc.ProcessingSummary.ProcessingDuration)
-
-	return nil
 }
 
-func processDirectory(ctx context.Context, proc *processor.DocumentProcessor, chunker *chunking.AgenticChunker,
-	chunkingStorage *chunking.ChunkingStorageManager, dirPath string, batchSize int, enableChunking bool) error {
+func sendSuccessResponse(w http.ResponseWriter, message string, data any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 
-	if err := proc.ProcessDirectory(ctx, dirPath, batchSize); err != nil {
-		return fmt.Errorf("failed to extract documents: %w", err)
+	response := APIResponse{
+		Success: true,
+		Message: message,
+		Data:    data,
 	}
 
-	if !enableChunking {
-		return nil
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Failed to encode success response: %v", err)
 	}
-
-	// TODO: Implement batch chunking for directory processing
-	// This would involve:
-	// 1. Finding all extracted documents
-	// 2. Processing them in batches
-	// 3. Implementing concurrent chunking with proper resource management
-
-	log.Println("Directory chunking not yet implemented - use individual file processing")
-	return nil
 }
 
-func loadExtractedContent(originalFilePath string) (*models.ExtractedContent, error) {
-	// This is a placeholder - you'll need to implement logic to find
-	// the corresponding extracted content file based on your storage naming convention
-	// For now, assume it follows a pattern like: original_file_extracted.json
+func sendErrorResponse(w http.ResponseWriter, message string, statusCode int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
 
-	// Implementation would depend on your storage manager's naming convention
-	return nil, fmt.Errorf("loadExtractedContent not implemented - integrate with your storage system")
+	response := APIResponse{
+		Success: false,
+		Error:   message,
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Failed to encode error response: %v", err)
+	}
 }

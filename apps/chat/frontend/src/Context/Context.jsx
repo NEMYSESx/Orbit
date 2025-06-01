@@ -7,7 +7,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const generateNewChat = async () => {
   try {
-    const response = await fetch("http://localhost:8000/conversation/create", {
+    const response = await fetch("http://localhost:8080/conversation/create", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -56,7 +56,7 @@ export const ContextProvider = (props) => {
   useEffect(() => {
     const getConvo = async () => {
       const response = await fetch(
-        `http://127.0.0.1:8000/conversation/initial`,
+        `http://localhost:8080/conversation/initial`,
         {
           method: "GET",
         }
@@ -76,7 +76,7 @@ export const ContextProvider = (props) => {
     const getCurrentConversation = async () => {
       stopReplyRef.current = true;
       const response = await fetch(
-        `http://127.0.0.1:8000/conversation/active/${activeConversationId}`
+        `http://localhost:8080/conversation/active/${activeConversationId}`
       );
       const result = await response.json();
       if (result && result.sessionId !== conversation.sessionId) {
@@ -88,7 +88,7 @@ export const ContextProvider = (props) => {
 
   const getSuggestions = async () => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/suggestions/");
+      const response = await fetch("http://localhost:8080/suggestions/");
       const data = await response.json();
       setSuggestions(data.suggestions);
     } catch (error) {
@@ -125,9 +125,6 @@ export const ContextProvider = (props) => {
 
     const userPayload = {
       query: userPrompt,
-      collection_name: "SLURM",
-      k: 3,
-      expand_with_model_knowledge: true,
       gemini_api_key: "AIzaSyCHrXPFGHX565uVzOVECqjsN6m77_VN9n0",
     };
 
@@ -135,7 +132,7 @@ export const ContextProvider = (props) => {
     const apiUrl = import.meta.env.VITE_API_URL;
     console.log(apiUrl);
     try {
-      const response = await fetch(`${apiUrl}/rag/answer`, {
+      const response = await fetch(`${apiUrl}/rag/query`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -204,7 +201,7 @@ export const ContextProvider = (props) => {
 
     async function saveToBackend() {
       const response = await fetch(
-        `http://127.0.0.1:8000/conversation/${activeConversationId}`,
+        `http://localhost:8080/conversation/${activeConversationId}`,
         {
           method: "POST",
           headers: {

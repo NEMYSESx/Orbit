@@ -3,7 +3,16 @@ from config import settings
 
 import logging
 import json
+import re
 from typing import List, Dict, Any, Optional
+from datetime import datetime
+
+from langchain_core.embeddings import Embeddings
+from langchain_core.vectorstores import VectorStore
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.documents import Document
+from langchain_google_genai import GoogleGenerativeAI
 
 from services.search_service import SearchService
 from config import settings
@@ -12,32 +21,175 @@ from models.qdrant_client import QdrantClientWrapper
 
 logger = logging.getLogger(__name__)
 
-class RAGService:
-    """Simplified RAG service that follows a clear search -> validate -> answer flow."""
+
+class QdrantVectorStoreWrapper(VectorStore):
     
+    def __init__(self, search_service: SearchService):
+        self.search_service = search_service
+    
+    def similarity_search(
+        self, 
+        query: str, 
+        k: int = 5, 
+        collection_name: str = None,
+        **kwargs
+    ) -> List[Document]:
+        try:
+            results = self.search_service.search(
+                query_text=query,
+                collection_name=collection_name,
+                limit=k,
+                time_priority=kwargs.get('time_priority', 0.3)
+            )
+            
+            documents = []
+            for doc in results:
+                timestamp = None
+                if "timestamp" in doc.payload:
+                    timestamp = doc.payload.get("timestamp")
+                elif "metadata" in doc.payload and "timestamp" in doc.payload["metadata"]:
+                    timestamp = doc.payload["metadata"].get("timestamp")
+                
+                if isinstance(timestamp, str):
+                    try:
+                        timestamp = int(timestamp)
+                    except (ValueError, TypeError):
+                        timestamp = 0
+                
+                if timestamp is None:
+                    timestamp = 0
+                
+                metadata = {k: v for k, v in doc.payload.items() if k != "text"}
+                metadata.update({
+                    "id": doc.id,
+                    "score": doc.score,
+                    "timestamp": timestamp,
+                    "collection": collection_name or settings.DEFAULT_COLLECTION_NAME
+                })
+                
+                documents.append(Document(
+                    page_content=doc.payload.get("text", ""),
+                    metadata=metadata
+                ))
+            
+            return documents
+        except Exception as e:
+            logger.error(f"Vector search failed: {e}")
+            return []
+
+class RAGService:    
     def __init__(
         self,
         search_service: SearchService = None,
         gemini_api_key: Optional[str] = None
     ):
         self.gemini_api_key = gemini_api_key
-        self.gemini_model = None
-
+        
         if search_service:
             self.search_service = search_service
         else:
             qdrant_client = QdrantClientWrapper()
-            embedding_model = EmbeddingModel(model_name=settings.EMBEDDING_MODEL,
-            output_dimensionality=settings.EMBEDDING_DIMENSIONALITY)
+            embedding_model = EmbeddingModel(
+                model_name=settings.EMBEDDING_MODEL,
+                output_dimensionality=settings.EMBEDDING_DIMENSIONALITY
+            )
             self.search_service = SearchService(
                 qdrant_client=qdrant_client, 
                 embedding_model=embedding_model
             )
+        
+        self._setup_langchain_components()
+    
+    def _setup_langchain_components(self):
+        """Initialize LangChain components"""
+        try:
+            self.llm = GoogleGenerativeAI(
+                model="gemini-2.5-pro-preview-05-06",
+                google_api_key=self.gemini_api_key,
+                temperature=0.1
+            ) if self.gemini_api_key else None
+            
+            self.vector_store = QdrantVectorStoreWrapper(self.search_service)
+            
+            self.context_answer_prompt = PromptTemplate(
+                input_variables=["query", "context"],
+                template="""
+                You are an AI assistant designed to answer questions comprehensively.
+                Use the provided context from documents as your primary source for specific details, facts, and recent information.
+                Supplement your answer with your general knowledge where necessary to provide a complete and helpful response.
+
+                Question: {query}
+
+                Context from Documents:
+                {context}
+
+                IMPORTANT INSTRUCTIONS:
+                1. Use information from the 'Context from Documents' first, especially for specific details directly related to the question.
+                2. If the context doesn't fully answer the question or provides only partial information, use your general knowledge to complete the answer.
+                3. Do not invent information and present it as coming from the 'Context from Documents' if it is not there.
+                4. Documents within the context are sorted by most recent timestamp first.
+                5. ALWAYS prioritize information from documents with the most recent timestamps when information differs within the provided context.
+                6. The most recent information (highest timestamp value) within the context should be considered the most accurate for details from the documents.
+                7. Aim for a helpful and informative answer, combining the specific details from the context with relevant general knowledge.
+                """
+            )
+            
+            self.knowledge_answer_prompt = PromptTemplate(
+                input_variables=["query"],
+                template="""
+                The user has asked: "{query}"
+                
+                Please provide a helpful, accurate, and concise answer based on your knowledge.
+                """
+            )
+            
+            self.relevance_check_prompt = PromptTemplate(
+                input_variables=["query", "context"],
+                template="""
+                Analyze whether the following retrieved documents are relevant to answering the user's query.
+                
+                User query: "{query}"
+                
+                Retrieved documents:
+                {context}
+                
+                Respond with a JSON object containing:
+                {{
+                    "is_relevant": true/false,
+                    "explanation": "brief explanation of your assessment"
+                }}
+                """
+            )
+            
+            self.json_parser = JsonOutputParser()
+            
+            self._setup_chains()
+            
+        except Exception as e:
+            logger.error(f"Failed to setup LangChain components: {e}")
+            self.llm = None
+    
+    def _setup_chains(self):
+        """Setup LangChain chains"""
+        if not self.llm:
+            return
+        
+        self.context_chain = (
+            self.context_answer_prompt 
+            | self.llm
+        )
+        
+        self.knowledge_chain = (
+            self.knowledge_answer_prompt 
+            | self.llm
+        )
+        
+        self.relevance_chain = (
+            self.relevance_check_prompt 
+            | self.llm
+        )
     
     def initialize_gemini_model(self, api_key: Optional[str] = None):
-        """Initialize the Gemini model with the provided API key."""
-        import google.generativeai as genai
-        
         try:
             key_to_use = api_key or self.gemini_api_key
             
@@ -45,107 +197,68 @@ class RAGService:
                 logger.error("No Gemini API key provided")
                 return False
             
-            genai.configure(api_key=key_to_use)
-            
             try:
-                self.gemini_model = genai.GenerativeModel('gemini-2.5-pro-preview-05-06')
+                self.llm = GoogleGenerativeAI(
+                    model="gemini-2.5-pro-preview-05-06",
+                    google_api_key=key_to_use,
+                    temperature=0.1
+                )
             except Exception:
-                self.gemini_model = genai.GenerativeModel('gemini-2.5-flash-preview-04-17')
+                self.llm = GoogleGenerativeAI(
+                    model="gemini-2.5-flash-preview-04-17",
+                    google_api_key=key_to_use,
+                    temperature=0.1
+                )
             
+            self._setup_chains()
             return True
+            
         except Exception as e:
             logger.error(f"Failed to initialize Gemini model: {str(e)}")
             return False
     
     def process_query(self, query_text: str, collections: List[str] = None) -> Dict[str, Any]:
-        """
-        Main entry point for processing a query through the RAG pipeline.
-    
-        Flow:
-        1. Search for relevant documents
-        2. Check if context is relevant using Gemini
-        3. If relevant, use context with priority to recent documents
-        4. If not relevant, let Gemini answer directly
-        """
         if not collections:
             collections = [settings.DEFAULT_COLLECTION_NAME]
     
         all_documents = []
         for collection in collections:
             try:
-                results = self.search_service.search(
+                docs = self.vector_store.similarity_search(
                     query_text,
+                    k=5,
                     collection_name=collection,
-                    limit=5,
                     time_priority=0.3
                 )
-            
-                for doc in results:
-                    timestamp = None
-                    
-                    if "timestamp" in doc.payload:
-                        timestamp = doc.payload.get("timestamp")
-                    elif "metadata" in doc.payload and "timestamp" in doc.payload["metadata"]:
-                        timestamp = doc.payload["metadata"].get("timestamp")
-                    
-                    logger.debug(f"Extracted timestamp: {timestamp}, type: {type(timestamp)}")
-                    
-                    if isinstance(timestamp, str):
-                        try:
-                            timestamp = int(timestamp)
-                        except (ValueError, TypeError):
-                            timestamp = 0
-                    
-                    if timestamp is None:
-                        timestamp = 0
-                            
+                
+                for doc in docs:
                     all_documents.append({
-                        "id": doc.id,
-                        "text": doc.payload.get("text", ""),
-                        "score": doc.score,
-                        "metadata": {k: v for k, v in doc.payload.items() if k != "text"},
-                        "collection": collection,
-                        "timestamp": timestamp  
+                        "id": doc.metadata.get("id"),
+                        "text": doc.page_content,
+                        "score": doc.metadata.get("score", 0),
+                        "metadata": {k: v for k, v in doc.metadata.items() 
+                                   if k not in ["id", "score", "timestamp", "collection"]},
+                        "collection": doc.metadata.get("collection", collection),
+                        "timestamp": doc.metadata.get("timestamp", 0)
                     })
+                    
             except Exception as e:
                 logger.error(f"Search failed in collection {collection}: {e}")
                 continue
     
         all_documents.sort(key=lambda d: d["score"], reverse=True)
-    
         all_documents.sort(key=lambda d: 0 if d["timestamp"] is None else -int(d["timestamp"]))
-    
         top_documents = all_documents[:5]
     
-        context = ""
-        if top_documents:
-            context_parts = []
-            for i, doc in enumerate(top_documents):
-                timestamp_display = "N/A"
-                if doc["timestamp"] is not None and doc["timestamp"] > 0:
-                    try:
-                        from datetime import datetime
-                        timestamp_display = f"{doc['timestamp']} ({datetime.fromtimestamp(doc['timestamp']).strftime('%Y-%m-%d %H:%M:%S')})"
-                    except (ValueError, TypeError, OverflowError):
-                        timestamp_display = str(doc["timestamp"])
-                        
-                context_parts.append(f"Document {i+1} (Score: {doc['score']:.2f}, Timestamp: {timestamp_display}):\n{doc['text']}")
-            
-            context = "\n\n".join(context_parts)
+        context = self._format_context(top_documents)
     
-        has_relevant_context = False
-        if top_documents:
-            if top_documents[0]["score"] > 0.85:
-                has_relevant_context = True
-            else:
-                relevance_check = self._check_context_relevance(query_text, top_documents)
-                has_relevant_context = relevance_check.get("is_relevant", False)
+        has_relevant_context = self._check_context_relevance_langchain(query_text, top_documents)
     
         if has_relevant_context:
-            answer = self._generate_answer_from_context(query_text, context)
+            answer = self._generate_answer_from_context_langchain(query_text, context)
             source = "documents"
         else:
-            answer = self._generate_answer_from_knowledge(query_text)
+            answer = self._generate_answer_from_knowledge_langchain(query_text)
             source = "gemini_knowledge"
     
         return {
@@ -156,122 +269,86 @@ class RAGService:
             "collections_searched": collections
         }
     
-    def _check_context_relevance(self, query_text: str, documents: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Check if the retrieved documents are relevant to the query.
+    def _format_context(self, documents: List[Dict[str, Any]]) -> str:
+        """Format documents into context string"""
+        if not documents:
+            return ""
         
-        Args:
-            query_text: User's question
-            documents: Retrieved documents
-            
-        Returns:
-            Dictionary with relevance assessment
-        """
-        if not self.gemini_model and not self.initialize_gemini_model():
-            return {"is_relevant": documents and documents[0]["score"] > 0.7}
+        context_parts = []
+        for i, doc in enumerate(documents):
+            timestamp_display = "N/A"
+            if doc["timestamp"] is not None and doc["timestamp"] > 0:
+                try:
+                    timestamp_display = f"{doc['timestamp']} ({datetime.fromtimestamp(doc['timestamp']).strftime('%Y-%m-%d %H:%M:%S')})"
+                except (ValueError, TypeError, OverflowError):
+                    timestamp_display = str(doc["timestamp"])
+                    
+            context_parts.append(
+                f"Document {i+1} (Score: {doc['score']:.2f}, Timestamp: {timestamp_display}):\n{doc['text']}"
+            )
+        
+        return "\n\n".join(context_parts)
+    
+    def _check_context_relevance_langchain(self, query_text: str, documents: List[Dict[str, Any]]) -> bool:
+        if not self.llm or not hasattr(self, 'relevance_chain'):
+            return documents and documents[0]["score"] > 0.7
         
         try:
             context_parts = []
-            for i, doc in enumerate(documents[:3]):  
+            for i, doc in enumerate(documents[:3]):
                 context_parts.append(f"Document {i+1} (Score: {doc['score']:.2f}):\n{doc['text']}\n")
             
             context = "\n".join(context_parts)
             
-            prompt = f"""
-            Analyze whether the following retrieved documents are relevant to answering the user's query.
+            response = self.relevance_chain.invoke({
+                "query": query_text,
+                "context": context
+            })
             
-            User query: "{query_text}"
-            
-            Retrieved documents:
-            {context}
-            
-            Respond with a JSON object containing:
-            {{
-                "is_relevant": true/false,
-                "explanation": "brief explanation of your assessment"
-            }}
-            """
-            
-            response = self.gemini_model.generate_content(prompt)
-            response_text = response.text.strip()
-            
-            import re
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            json_match = re.search(r'\{.*\}', response, re.DOTALL)
             if json_match:
-                return json.loads(json_match.group(0))
+                result = json.loads(json_match.group(0))
+                return result.get("is_relevant", False)
             
-            return {"is_relevant": documents and documents[0]["score"] > 0.7}
+            return documents and documents[0]["score"] > 0.7
+            
         except Exception as e:
-            logger.error(f"Error in context relevance check: {e}")
-            return {"is_relevant": documents and documents[0]["score"] > 0.7}
+            logger.error(f"Error in LangChain context relevance check: {e}")
+            return documents and documents[0]["score"] > 0.7
+    
+    def _generate_answer_from_context_langchain(self, query_text: str, context: str) -> str:
+        if not self.llm or not hasattr(self, 'context_chain'):
+            return "I couldn't process your query due to configuration issues."
+
+        try:
+            response = self.context_chain.invoke({
+                "query": query_text,
+                "context": context
+            })
+            return response.strip() if response else "I couldn't generate a text answer based on the provided context."
+            
+        except Exception as e:
+            logger.error(f"Error generating answer from context with LangChain: {e}")
+            return "I encountered an error while processing your question."
+    
+    def _generate_answer_from_knowledge_langchain(self, query_text: str) -> str:
+        if not self.llm or not hasattr(self, 'knowledge_chain'):
+            return "I couldn't process your query due to configuration issues."
+        
+        try:
+            response = self.knowledge_chain.invoke({"query": query_text})
+            return response.strip() if response else "I couldn't generate an answer."
+            
+        except Exception as e:
+            logger.error(f"Error generating answer from knowledge with LangChain: {e}")
+            return "I encountered an error while processing your question."
+    
+    def _check_context_relevance(self, query_text: str, documents: List[Dict[str, Any]]) -> Dict[str, Any]:
+        is_relevant = self._check_context_relevance_langchain(query_text, documents)
+        return {"is_relevant": is_relevant, "explanation": "Processed with LangChain"}
     
     def _generate_answer_from_context(self, query_text: str, context: str) -> str:
-        """
-        Generate an answer using the retrieved context and Gemini's knowledge.
-
-        Args:
-            query_text: User's question
-            context: Retrieved context from documents
-
-        Returns:
-            Generated answer
-        """
-        if not self.gemini_model and not self.initialize_gemini_model():
-            return "I couldn't process your query due to configuration issues."
-
-        try:
-            prompt = f"""
-            You are an AI assistant designed to answer questions comprehensively.
-            Use the provided context from documents as your primary source for specific details, facts, and recent information.
-            Supplement your answer with your general knowledge where necessary to provide a complete and helpful response.
-
-            Question: {query_text}
-
-            Context from Documents:
-            {context}
-
-            IMPORTANT INSTRUCTIONS:
-            1. Use information from the 'Context from Documents' first, especially for specific details directly related to the question.
-            2. If the context doesn't fully answer the question or provides only partial information, use your general knowledge to complete the answer.
-            3. Do not invent information and present it as coming from the 'Context from Documents' if it is not there.
-            4. Documents within the context are sorted by most recent timestamp first.
-            5. ALWAYS prioritize information from documents with the most recent timestamps when information differs within the provided context.
-            6. The most recent information (highest timestamp value) within the context should be considered the most accurate for details from the documents.
-            7. Aim for a helpful and informative answer, combining the specific details from the context with relevant general knowledge.
-            """
-
-            response = self.gemini_model.generate_content(prompt)
-            if response and response.text:
-                return response.text.strip()
-            else:
-                logger.warning(f"Gemini returned no text content for query: {query_text}")
-                return "I couldn't generate a text answer based on the provided context."
-        except Exception as e:
-            logger.error(f"Error generating answer from context: {e}")
-            return "I encountered an error while processing your question."
+        return self._generate_answer_from_context_langchain(query_text, context)
     
     def _generate_answer_from_knowledge(self, query_text: str) -> str:
-        """
-        Generate an answer using Gemini's knowledge.
-        
-        Args:
-            query_text: User's question
-            
-        Returns:
-            Generated answer
-        """
-        if not self.gemini_model and not self.initialize_gemini_model():
-            return "I couldn't process your query due to configuration issues."
-        
-        try:
-            prompt = f"""
-            The user has asked: "{query_text}"
-            
-            Please provide a helpful, accurate, and concise answer based on your knowledge.
-            """
-            
-            response = self.gemini_model.generate_content(prompt)
-            return response.text.strip()
-        except Exception as e:
-            logger.error(f"Error generating answer from knowledge: {e}")
-            return "I encountered an error while processing your question."
+        return self._generate_answer_from_knowledge_langchain(query_text)

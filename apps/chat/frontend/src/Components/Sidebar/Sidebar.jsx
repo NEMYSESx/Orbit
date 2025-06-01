@@ -20,7 +20,7 @@ const Sidebar = () => {
     const fetchTitle = async () => {
       try {
         const response = await fetch(
-          "http://127.0.0.1:8000/conversation/sidebar"
+          "http://localhost:8080/conversation/sidebar"
         );
         const result = await response.json();
         setConversations(Array.isArray(result) ? result : []);
@@ -38,7 +38,7 @@ const Sidebar = () => {
 
   const confirmDeleteChat = async () => {
     setShowDeletePopup(false);
-    await fetch(`http://127.0.0.1:8000/conversation/${activeConversationId}`, {
+    await fetch(`http://localhost:8080/conversation/${activeConversationId}`, {
       method: "DELETE",
     });
     setUpdateSidebar2((prev) => !prev);

@@ -1,168 +1,161 @@
-// internal/processor/processor.go
 package processor
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"log"
-	"os"
-	"path/filepath"
-	"sync"
+	"mime/multipart"
 	"time"
 
-	"github.com/NEMYSESx/orbit/apps/ingestion-pipeline/internal/config"
-	"github.com/NEMYSESx/orbit/apps/ingestion-pipeline/internal/metadata"
-	"github.com/NEMYSESx/orbit/apps/ingestion-pipeline/internal/storage"
-	"github.com/NEMYSESx/orbit/apps/ingestion-pipeline/internal/text"
-	"github.com/NEMYSESx/orbit/apps/ingestion-pipeline/internal/tika"
-	"github.com/NEMYSESx/orbit/apps/ingestion-pipeline/internal/validator"
+	"github.com/NEMYSESx/Orbit/apps/ingestion-pipeline/internal/chunking"
+	"github.com/NEMYSESx/Orbit/apps/ingestion-pipeline/internal/config"
+	"github.com/NEMYSESx/Orbit/apps/ingestion-pipeline/internal/models"
+	"github.com/NEMYSESx/Orbit/apps/ingestion-pipeline/internal/text"
+	"github.com/NEMYSESx/Orbit/apps/ingestion-pipeline/internal/tika"
+	"github.com/NEMYSESx/Orbit/apps/ingestion-pipeline/internal/validator"
 )
 
-const ProcessorVersion = "1.0.0"
-
 type DocumentProcessor struct {
-	config        *config.Config
-	tikaClient    *tika.Client
-	metaBuilder   *metadata.Builder
-	textCleaner   *text.Cleaner
-	validator     *validator.FileValidator
-	storage       *storage.Manager
-	logger        *log.Logger
+	config      *config.Config
+	tikaClient  *tika.Client
+	textCleaner *text.Cleaner
+	validator   *validator.FileValidator
+	chunker     *chunking.AgenticChunker
 }
 
 func New(cfg *config.Config) (*DocumentProcessor, error) {
-	if err := os.MkdirAll(cfg.Storage.OutputDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create output directory: %w", err)
-	}
-	if err := os.MkdirAll(cfg.Storage.TempDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create temp directory: %w", err)
+	chunkingConfig := models.ChunkingConfig{
+		GeminiAPIKey:   cfg.Chunking.GeminiAPIKey,
+		GeminiModel:    cfg.Chunking.GeminiModel,
+		MaxRetries:     3,
+		MaxConcurrency: 5,
+		RateLimitRPS:   10,
+		RequestTimeout: time.Second * 30,
 	}
 
 	dp := &DocumentProcessor{
 		config:      cfg,
 		tikaClient:  tika.NewClient(&cfg.Tika),
-		metaBuilder: metadata.NewBuilder(),
 		textCleaner: text.NewCleaner(cfg.Processing.EnableTextClean),
 		validator:   validator.NewFileValidator(&cfg.Processing),
-		storage:     storage.NewManager(&cfg.Storage),
-		logger:      log.New(os.Stdout, "[DOC_PROCESSOR] ", log.LstdFlags|log.Lshortfile),
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	
-	if err := dp.tikaClient.HealthCheck(ctx); err != nil {
-		return nil, fmt.Errorf("tika server health check failed: %w", err)
+		chunker:     chunking.NewAgenticChunkerWithConfig(chunkingConfig),
 	}
 
 	return dp, nil
 }
 
-func (dp *DocumentProcessor) ProcessDocument(ctx context.Context, filePath string) error {
-	start := time.Now()
-	dp.logger.Printf("Starting processing for file: %s", filePath)
+func (dp *DocumentProcessor) ProcessDocument(ctx context.Context, file multipart.File, header *multipart.FileHeader) (*models.ProcessResult, error) {
+	fmt.Printf("Starting processing for file: %s\n", header.Filename)
 
-	if err := dp.validator.Validate(filePath); err != nil {
-		return fmt.Errorf("file validation failed: %w", err)
+	if seeker, ok := file.(interface{ Seek(int64, int) (int64, error) }); ok {
+		if _, err := seeker.Seek(0, 0); err != nil {
+			return nil, fmt.Errorf("failed to reset file pointer: %w", err)
+		}
 	}
 
-	extracted, err := dp.tikaClient.ExtractWithMetadata(ctx, filePath)
+	if err := dp.validator.Validate(file, *header); err != nil {
+		return nil, fmt.Errorf("file validation failed: %w", err)
+	}
+
+	if seeker, ok := file.(interface{ Seek(int64, int) (int64, error) }); ok {
+		if _, err := seeker.Seek(0, 0); err != nil {
+			return nil, fmt.Errorf("failed to reset file pointer: %w", err)
+		}
+	}
+
+	extracted, err := dp.tikaClient.ExtractWithMetadata(ctx, file, header)
 	if err != nil {
-		return fmt.Errorf("tika extraction failed: %w", err)
+		return nil, fmt.Errorf("tika extraction failed: %w", err)
 	}
 
-	metadata, err := dp.metaBuilder.BuildFromFile(filePath, map[string]interface{}{})
-	if err != nil {
-		return fmt.Errorf("metadata building failed: %w", err)
-	}
-	metadata.ProcessedAt = time.Now()
-	metadata.ProcessorVersion = ProcessorVersion
-	extracted.Metadata = *metadata
-
-	extracted.CleanText = dp.textCleaner.Clean(extracted.RawText)
-	extracted.WordCount = dp.textCleaner.CountWords(extracted.CleanText)
-
-	outputPath, err := dp.storage.Save(extracted)
-	if err != nil {
-		return fmt.Errorf("failed to save extracted content: %w", err)
+	cleanText := extracted.CleanText
+	if dp.config.Processing.EnableTextClean {
+		cleanText = dp.textCleaner.Clean(extracted.CleanText)
 	}
 
-	processingTime := time.Since(start)
-	dp.logger.Printf("Successfully processed document: %s -> %s (took %v)", 
-		filePath, outputPath, processingTime)
+	var chunks []models.ChunkOutput
+	if dp.config.Chunking.Enabled && dp.config.Chunking.GeminiAPIKey != "" {
+		fmt.Printf("Starting agentic chunking for document: %s\n", header.Filename)
+		
+		sourceInfo := models.SourceInfo{
+			DocumentTitle: extracted.Metadata.Title,
+			DocumentType:  extracted.Metadata.ContentType,
+			LastModified:  extracted.Metadata.LastModifiedDate,
+		}
 
-	return nil
-}
-
-func (dp *DocumentProcessor) ProcessDirectory(ctx context.Context, dirPath string, batchSize int) error {
-	files, err := dp.getSupportedFiles(dirPath)
-	if err != nil {
-		return fmt.Errorf("failed to get files: %w", err)
-	}
-
-	if len(files) == 0 {
-		return fmt.Errorf("no supported files found in directory: %s", dirPath)
-	}
-
-	dp.logger.Printf("Found %d files to process", len(files))
-	return dp.processBatch(ctx, files, batchSize)
-}
-
-func (dp *DocumentProcessor) getSupportedFiles(dirPath string) ([]string, error) {
-	var files []string
-	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		chunkOutputs, err := dp.chunker.ChunkTextWithSource(ctx, cleanText, sourceInfo)
 		if err != nil {
-			return err
+			fmt.Printf("Agentic chunking failed for %s: %v\n", header.Filename, err)
+		} else {
+			chunks = chunkOutputs
+			fmt.Printf("Successfully created %d chunks for document: %s\n", len(chunks), header.Filename)
 		}
-		if !info.IsDir() && dp.validator.IsSupported(path) {
-			files = append(files, path)
-		}
-		return nil
-	})
-	return files, err
+	}
+
+	fmt.Printf("Successfully processed document: %s\n", header.Filename)
+printChunksStructured(chunks)
+	result := &models.ProcessResult{
+		ExtractedContent: extracted,
+		Chunks:           chunks,
+	}
+
+	return result, nil
 }
 
-func (dp *DocumentProcessor) processBatch(ctx context.Context, files []string, batchSize int) error {
-	var wg sync.WaitGroup
-	semaphore := make(chan struct{}, batchSize)
-	
-	successCount := 0
-	errorCount := 0
-	var mu sync.Mutex
+func (dp *DocumentProcessor) ProcessDocumentWithChunking(ctx context.Context, file multipart.File, header *multipart.FileHeader) (*models.ProcessResult, error) {
+	originalEnabled := dp.config.Chunking.Enabled
+	dp.config.Chunking.Enabled = true
+	defer func() {
+		dp.config.Chunking.Enabled = originalEnabled
+	}()
 
-	for _, file := range files {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case semaphore <- struct{}{}:
+	return dp.ProcessDocument(ctx, file, header)
+}
+
+func (dp *DocumentProcessor) GetChunkingStatistics(result *models.ProcessResult) map[string]interface{} {
+	if result.Chunks == nil || len(result.Chunks) == 0 {
+		return map[string]interface{}{
+			"total_chunks": 0,
+			"chunking_enabled": false,
 		}
-
-		wg.Add(1)
-		go func(filePath string) {
-			defer wg.Done()
-			defer func() { <-semaphore }()
-
-			if err := dp.ProcessDocument(ctx, filePath); err != nil {
-				mu.Lock()
-				errorCount++
-				mu.Unlock()
-				dp.logger.Printf("Failed to process file %s: %v", filePath, err)
-			} else {
-				mu.Lock()
-				successCount++
-				mu.Unlock()
-			}
-		}(file)
 	}
 
-	wg.Wait()
+	totalWords := 0
+	categories := make(map[string]int)
+	sentiments := make(map[string]int)
+	complexities := make(map[string]int)
+
+	for _, chunk := range result.Chunks {
+		totalWords += chunk.ChunkMetadata.WordCount
+		categories[chunk.ChunkMetadata.Category]++
+		sentiments[chunk.ChunkMetadata.Sentiment]++
+		complexities[chunk.ChunkMetadata.Complexity]++
+	}
+
+	avgWords := 0.0
+	if len(result.Chunks) > 0 {
+		avgWords = float64(totalWords) / float64(len(result.Chunks))
+	}
+
+
+
+	return map[string]interface{}{
+		"total_chunks":              len(result.Chunks),
+		"total_words":               totalWords,
+		"average_words_per_chunk":   avgWords,
+		"categories":                categories,
+		"sentiments":                sentiments,
+		"complexities":              complexities,
+		"chunking_enabled":          true,
+	}
 	
-	dp.logger.Printf("Batch processing complete: %d successful, %d failed out of %d total", 
-		successCount, errorCount, len(files))
+}
 
-	if errorCount > 0 && successCount == 0 {
-		return fmt.Errorf("all %d files failed to process", errorCount)
-	}
-
-	return nil
+func printChunksStructured(chunks interface{}) {
+    prettyJSON, err := json.MarshalIndent(chunks, "", "  ")
+    if err != nil {
+        fmt.Println("Failed to generate structured output:", err)
+        return
+    }
+    fmt.Println("The output is:\n", string(prettyJSON))
 }

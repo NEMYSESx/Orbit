@@ -198,7 +198,6 @@ func (s *LogShipper) uploadBuffer() error {
 	s.buffer = ""
 	s.bufferSize = 0
 	
-	// Save state
 	return s.saveState()
 }
 

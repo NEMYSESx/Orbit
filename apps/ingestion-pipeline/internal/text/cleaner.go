@@ -1,4 +1,3 @@
-// internal/text/cleaner.go
 package text
 
 import (
