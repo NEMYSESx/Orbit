@@ -3,12 +3,15 @@ import "./Main.css";
 import { assets } from "../../assets/assets";
 import Card from "./Card";
 import { Context } from "../../Context/Context";
+import { Copy, RefreshCw } from "lucide-react";
+
 
 const Main = () => {
   const theme = localStorage.getItem("theme");
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
+  const [lastUserInput, setLastUserInput] = useState("");
 
   useEffect(() => {
     if (theme === "dark") {
@@ -68,13 +71,14 @@ const Main = () => {
     stopReply,
     stopIcon,
     suggestions,
+    regenerateResponse,
   } = useContext(Context);
 
   const cardText = suggestions;
 
   const chatEndRef = useRef(null);
-  const scrollToBottom = () =>
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = () => chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  
   const toggleDarkMode = () => {
     setIsDarkMode((prevMode) => {
       const newMode = !prevMode;
@@ -135,9 +139,26 @@ const Main = () => {
                       </div>
                     ) : (
                       <div className="hello">
-                        <p
-                          dangerouslySetInnerHTML={{ __html: message.text }}
-                        ></p>
+                        <p dangerouslySetInnerHTML={{ __html: message.text }}></p>
+                        <div className="chat-utils">
+                          <Copy
+                            size={18}
+                            className="icon-btn"
+                            onClick={() => {
+                              const tempElement = document.createElement("div");
+                              tempElement.innerHTML = message.text;
+                              const plainText = tempElement.textContent || tempElement.innerText || "";
+                              navigator.clipboard.writeText(plainText);
+                            }}
+                            title="Copy"
+                          />
+                          <RefreshCw
+                            size={18}
+                            className="icon-btn"
+                            onClick={() => regenerateResponse(lastUserInput)}
+                            title="Regenerate"
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
