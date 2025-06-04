@@ -100,7 +100,7 @@ export const ContextProvider = (props) => {
     getSuggestions();
   }, []);
 
-  const onSent = async (prompt) => {
+  const onSent = async (prompt, isRegenerating = false) => {
     const userPrompt = prompt || input;
 
     setAllowSending(false);
@@ -110,12 +110,21 @@ export const ContextProvider = (props) => {
     setShowResult(true);
 
     const userMessage = { type: "user", text: userPrompt };
-    const botMessage = { type: "bot", text: "..." };
+    const botMessagePlaceholder = { type: "bot", text: "..." };
 
-    setConversation((prev) => ({
-      ...prev,
-      messages: [...(prev.messages || []), userMessage, botMessage],
-    }));
+    setConversation((prev) => {
+      let updatedMessages;
+      if (isRegenerating && prev.messages.length >= 2) {
+        updatedMessages = [...prev.messages.slice(0, prev.messages.length - 1), botMessagePlaceholder];
+      } 
+      else {
+        updatedMessages = [...(prev.messages || []), userMessage, botMessagePlaceholder];
+      }
+      return{
+        ...prev,
+        messages: updatedMessages,
+      };
+    });
 
     setInput("");
 
@@ -250,6 +259,16 @@ export const ContextProvider = (props) => {
     });
   };
 
+  const regenerateResponse = (lastPrompt) => {
+    if (loading) return;
+    if (conversation.messages.length === 0) return;
+
+    stopReply();
+
+    // Call onSent with the last user input, indicating it's a regeneration
+    onSent(lastPrompt, true);
+  };
+
   return (
     <Context.Provider
       value={{
@@ -270,6 +289,7 @@ export const ContextProvider = (props) => {
         setUpdateSidebar,
         updateSidebar2,
         setUpdateSidebar2,
+        regenerateResponse,
       }}
     >
       {props.children}
