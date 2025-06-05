@@ -8,6 +8,7 @@ const Main = () => {
   const theme = localStorage.getItem("theme");
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isListening, setIsListening] = useState(false);
+  const [speakingIndex, setSpeakingIndex] = useState(null);
   const recognitionRef = useRef(null);
 
   useEffect(() => {
@@ -110,7 +111,7 @@ const Main = () => {
         return "Thank you!";
       case "😂":
         return "Thanks, humm!";
-      
+
       case "👎":
         return "How can I help you, give some details so I can help you better way";
       default:
@@ -230,6 +231,39 @@ const Main = () => {
                             {getReactionMessage(messageReactions[index])}
                           </div>
                         )}
+                        {/* Speak/Stop single toggle button */}
+                        <div style={{ marginTop: "8px" }}>
+                          <button
+                            style={{
+                              padding: "4px 16px",
+                              borderRadius: "4px",
+                              border: "1px solid #007bff",
+                              background: speakingIndex === index ? "#dc3545" : "#007bff",
+                              color: "#fff",
+                              cursor: "pointer",
+                              fontWeight: "bold",
+                              transition: "background 0.2s",
+                            }}
+                            onClick={() => {
+                              if (speakingIndex === index) {
+                                window.speechSynthesis.cancel();
+                                setSpeakingIndex(null);
+                              } else {
+                                window.speechSynthesis.cancel();
+                                const utter = new window.SpeechSynthesisUtterance(
+                                  message.text.replace(/<[^>]+>/g, "")
+                                );
+                                utter.lang = "en-US";
+                                utter.onend = () => setSpeakingIndex(null);
+                                utter.onerror = () => setSpeakingIndex(null);
+                                setSpeakingIndex(index);
+                                window.speechSynthesis.speak(utter);
+                              }
+                            }}
+                          >
+                            {speakingIndex === index ? "Stop" : "Speak"}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
