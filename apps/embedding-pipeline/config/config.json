@@ -1,13 +1,13 @@
 {
   "kafka": {
-    "bootstrap_servers": "localhost:9092",
+    "bootstrap_servers": "kafka:29092",
     "group_id": "embedding-pipeline-group",
     "topic": "documents",
     "auto_offset_reset": "earliest"
   },
   "qdrant": {
-    "url": "https://00819855-01e9-4396-a2b5-5a856fe32d73.eu-central-1-0.aws.cloud.qdrant.io:6333",
-    "api_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.I_YX0wNGh_QrZ9A8gjGs8tCgA1a-AKvQ1vyXVJ_QVrs",
+    "url": "https://bad7e720-f630-4fe4-a36d-9e7f85ae7503.europe-west3-0.gcp.cloud.qdrant.io:6333",
+    "api_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.o0-1435PBNpbvrb4AvciyNGW9XhYQc8SmP76Dcmk7s0",
     "collection": "documents",
     "vector_size": 768
   },

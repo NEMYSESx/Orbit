@@ -49,7 +49,7 @@ RUN rm -rf tests/ *.md .git* .pytest_cache/ __pycache__/ \
 USER appuser
 
 
-EXPOSE 8000
+EXPOSE 8080
 
 ENTRYPOINT ["python"]
-CMD ["api/main.py"]
+CMD ["main.py"]

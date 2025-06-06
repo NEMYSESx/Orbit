@@ -4,6 +4,7 @@ import { assets } from "../../assets/assets";
 import { Context } from "../../Context/Context";
 
 const Sidebar = () => {
+  const backend = import.meta.env.VITE_BACKEND_URL;
   const {
     setUpdateSidebar2,
     updateSidebar,
@@ -19,9 +20,7 @@ const Sidebar = () => {
   useEffect(() => {
     const fetchTitle = async () => {
       try {
-        const response = await fetch(
-          "http://localhost:8080/conversation/sidebar"
-        );
+        const response = await fetch(`${backend}/conversation/sidebar`);
         const result = await response.json();
         setConversations(Array.isArray(result) ? result : []);
       } catch (error) {
@@ -38,7 +37,7 @@ const Sidebar = () => {
 
   const confirmDeleteChat = async () => {
     setShowDeletePopup(false);
-    await fetch(`http://localhost:8080/conversation/${activeConversationId}`, {
+    await fetch(`${backend}/conversation/${activeConversationId}`, {
       method: "DELETE",
     });
     setUpdateSidebar2((prev) => !prev);
@@ -93,34 +92,35 @@ const Sidebar = () => {
         {sidebarExpanded && (
           <div className="recent">
             <p className="recent_title">Recent</p>
-            {Array.isArray(conversations) && conversations.map((conv) => (
-              <div
-                key={conv.sessionId}
-                className={`chat-title recent_entry ${
-                  activeConversationId === conv.sessionId ? "active" : ""
-                }`}
-                onClick={() => {
-                  activeConversationId !== conv.sessionId && stopReply();
-                  setActiveConversationId(conv.sessionId);
-                }}
-              >
-                <p className="chatName">
-                  <span>
-                    {conv.title
-                      ? activeConversationId === conv.sessionId
-                        ? conv.title.slice(0, 30)
-                        : conv.title.slice(0, 18)
-                      : "New Chat"}
-                    ...
-                  </span>
-                  {activeConversationId === conv.sessionId && (
-                    <span className="menu" onClick={handleChatMenuClicked}>
-                      <img src={assets.deleteBtn} alt="Delete" />
+            {Array.isArray(conversations) &&
+              conversations.map((conv) => (
+                <div
+                  key={conv.sessionId}
+                  className={`chat-title recent_entry ${
+                    activeConversationId === conv.sessionId ? "active" : ""
+                  }`}
+                  onClick={() => {
+                    activeConversationId !== conv.sessionId && stopReply();
+                    setActiveConversationId(conv.sessionId);
+                  }}
+                >
+                  <p className="chatName">
+                    <span>
+                      {conv.title
+                        ? activeConversationId === conv.sessionId
+                          ? conv.title.slice(0, 30)
+                          : conv.title.slice(0, 18)
+                        : "New Chat"}
+                      ...
                     </span>
-                  )}
-                </p>
-              </div>
-            ))}
+                    {activeConversationId === conv.sessionId && (
+                      <span className="menu" onClick={handleChatMenuClicked}>
+                        <img src={assets.deleteBtn} alt="Delete" />
+                      </span>
+                    )}
+                  </p>
+                </div>
+              ))}
           </div>
         )}
       </div>

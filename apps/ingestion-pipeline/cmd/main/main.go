@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -25,7 +26,10 @@ type ProcessingResponse struct {
 }
 
 func main() {
-	cfg, err := config.Load("config.json")
+	configPath := flag.String("config", "config.json", "Path to config file")
+    flag.Parse()
+
+	cfg, err := config.Load(*configPath)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
@@ -65,8 +69,7 @@ func handleReceiveDocument(docProcessor *processor.DocumentProcessor, cfg *confi
 
 		startTime := time.Now()
 
-		// Add file size validation
-		err := r.ParseMultipartForm(int64(cfg.Processing.MaxFileSize) << 20) // Convert MB to bytes
+		err := r.ParseMultipartForm(int64(cfg.Processing.MaxFileSize) << 20) 
 		if err != nil {
 			log.Printf("Failed to parse multipart form: %v", err)
 			sendErrorResponse(w, "File too large or invalid form data", http.StatusBadRequest)

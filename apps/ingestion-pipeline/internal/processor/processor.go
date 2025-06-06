@@ -35,9 +35,8 @@ func New(cfg *config.Config) (*DocumentProcessor, error) {
 		RequestTimeout: time.Second * 30,
 	}
 
-	// Initialize Kafka producer
 	producer, err := kafka.NewProducer(&kafka.ConfigMap{
-		"bootstrap.servers": "localhost:9092",
+		"bootstrap.servers": "kafka:29092",
 		"acks":             "all",
 		"retries":          "3",
 		"batch.size":       "16384",
@@ -164,7 +163,7 @@ func (dp *DocumentProcessor) GetChunkingStatistics(result *models.ProcessResult)
 }
 
 func kafkaProducer(chunks []models.ChunkOutput, topic string) {
-	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": "localhost:9092"})
+	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": "kafka:29092"})
 	if err != nil {
 		fmt.Printf("Failed to create producer: %v\n", err)
 		return
