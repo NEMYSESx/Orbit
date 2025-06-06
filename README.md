@@ -11,8 +11,9 @@ RAG API - Retrieval-Augmented Generation service
 Chat Backend - Main application backend
 Chat Frontend - React-based user interface
 
-git clone <https://github.com/NEMYSESx/Orbit>
-cd <Orbit>
+```bash
+git clone https://github.com/NEMYSESx/Orbit
+cd Orbit
 
 Build and Start Services
 docker-compose up --build
