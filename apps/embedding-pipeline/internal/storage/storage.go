@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/NEMYSESx/Orbit/apps/embedding-pipeline/internal/config"
@@ -47,7 +46,6 @@ func NewQdrantClientWithConfig(cfg config.QdrantConfig) (*QdrantClient, error) {
 		},
 	}
 
-	// Create collection if it doesn't exist
 	err := client.createCollectionIfNotExistsWithSize(cfg.VectorSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create collection: %w", err)
@@ -57,7 +55,6 @@ func NewQdrantClientWithConfig(cfg config.QdrantConfig) (*QdrantClient, error) {
 }
 
 func (qc *QdrantClient) createCollectionIfNotExistsWithSize(vectorSize int) error {
-	// Check if collection exists
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/collections/%s", qc.baseURL, qc.collection), nil)
 	if err != nil {
 		return err
@@ -76,8 +73,14 @@ func (qc *QdrantClient) createCollectionIfNotExistsWithSize(vectorSize int) erro
 	if resp.StatusCode == http.StatusOK {
 		return nil // Collection exists
 	}
+	
+	if resp.StatusCode != http.StatusNotFound {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status checking collection: %d, %s", resp.StatusCode, string(body))
+	}
+	
+	// Collection doesn't exist, create it
 
-	// Create collection with configurable vector size
 	createReq := map[string]interface{}{
 		"vectors": map[string]interface{}{
 			"size":     vectorSize,
@@ -106,29 +109,20 @@ func (qc *QdrantClient) createCollectionIfNotExistsWithSize(vectorSize int) erro
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to create collection: %s", string(body))
+		return fmt.Errorf("failed to create collection (status %d): %s", resp.StatusCode, string(body))
 	}
+	
+	fmt.Printf("Successfully created collection '%s' with vector size %d\n", qc.collection, vectorSize)
 
 	return nil
 }
 
-// generateValidPointID creates a valid Qdrant point ID from the chunk data
-func (qc *QdrantClient) generateValidPointID(enrichedChunk consumer.EnrichedChunk) string {
-	// Option 1: Generate UUID (recommended)
+func (qc *QdrantClient) generateValidPointID() string {
 	return uuid.New().String()
-	
-	// Option 2: Generate deterministic ID based on content (uncomment if you prefer this)
-	// data := fmt.Sprintf("%s_%d_%s", 
-	//     enrichedChunk.Source.DocumentTitle,
-	//     enrichedChunk.ChunkMetadata.ChunkIndex,
-	//     enrichedChunk.ChunkMetadata.Timestamp)
-	// hash := md5.Sum([]byte(data))
-	// return fmt.Sprintf("%x", hash)
 }
 
-// createPayload creates payload from chunk metadata
 func (qc *QdrantClient) createPayload(enrichedChunk consumer.EnrichedChunk) map[string]interface{} {
 	payload := map[string]interface{}{
 		"text":           enrichedChunk.Text,
@@ -159,7 +153,6 @@ func (qc *QdrantClient) createPayload(enrichedChunk consumer.EnrichedChunk) map[
 	return payload
 }
 
-// StoreEmbeddings stores multiple enriched chunks as separate points in batch
 func (qc *QdrantClient) StoreEmbeddings(enrichedChunks []consumer.EnrichedChunk) error {
 	if len(enrichedChunks) == 0 {
 		return fmt.Errorf("no chunks to store")
@@ -167,9 +160,8 @@ func (qc *QdrantClient) StoreEmbeddings(enrichedChunks []consumer.EnrichedChunk)
 
 	var points []QdrantPoint
 
-	// Create a point for each enriched chunk
 	for _, enrichedChunk := range enrichedChunks {
-		pointID := qc.generateValidPointID(enrichedChunk)
+		pointID := qc.generateValidPointID()
 		payload := qc.createPayload(enrichedChunk)
 
 		point := QdrantPoint{
@@ -181,7 +173,6 @@ func (qc *QdrantClient) StoreEmbeddings(enrichedChunks []consumer.EnrichedChunk)
 		points = append(points, point)
 	}
 
-	// Create batch upsert request
 	upsertReq := QdrantUpsertRequest{
 		Points: points,
 	}
@@ -191,7 +182,6 @@ func (qc *QdrantClient) StoreEmbeddings(enrichedChunks []consumer.EnrichedChunk)
 		return fmt.Errorf("error marshaling batch upsert request: %w", err)
 	}
 
-	// Send batch request to Qdrant
 	url := fmt.Sprintf("%s/collections/%s/points", qc.baseURL, qc.collection)
 	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonData))
 	if err != nil {
@@ -216,7 +206,6 @@ func (qc *QdrantClient) StoreEmbeddings(enrichedChunks []consumer.EnrichedChunk)
 
 	fmt.Printf("Successfully stored %d embeddings as separate points\n", len(enrichedChunks))
 	
-	// Log details about each stored chunk
 	for i, chunk := range enrichedChunks {
 		fmt.Printf("  Point %d: Document='%s', ChunkIndex=%d, WordCount=%d\n", 
 			i+1, chunk.Source.DocumentTitle, chunk.ChunkMetadata.ChunkIndex, chunk.ChunkMetadata.WordCount)
@@ -225,77 +214,6 @@ func (qc *QdrantClient) StoreEmbeddings(enrichedChunks []consumer.EnrichedChunk)
 	return nil
 }
 
-// StoreEmbedding stores a single enriched chunk (backward compatibility)
 func (qc *QdrantClient) StoreEmbedding(enrichedChunk consumer.EnrichedChunk) error {
 	return qc.StoreEmbeddings([]consumer.EnrichedChunk{enrichedChunk})
-}
-
-func (qc *QdrantClient) SearchSimilar(query []float32, limit int) ([]QdrantPoint, error) {
-	searchReq := map[string]interface{}{
-		"vector": query,
-		"limit":  limit,
-		"with_payload": true,
-	}
-
-	jsonData, err := json.Marshal(searchReq)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling search request: %w", err)
-	}
-
-	url := fmt.Sprintf("%s/collections/%s/points/search", qc.baseURL, qc.collection)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("error creating request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	if qc.apiKey != "" {
-		req.Header.Set("api-key", qc.apiKey)
-	}
-
-	resp, err := qc.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("error sending request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("search failed (status %d): %s", resp.StatusCode, string(body))
-	}
-
-	var searchResp struct {
-		Result []struct {
-			ID      interface{}            `json:"id"` // Can be string or number
-			Score   float64               `json:"score"`
-			Payload map[string]interface{} `json:"payload"`
-		} `json:"result"`
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("error reading response: %w", err)
-	}
-
-	err = json.Unmarshal(body, &searchResp)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling response: %w", err)
-	}
-
-	var points []QdrantPoint
-	for _, result := range searchResp.Result {
-		points = append(points, QdrantPoint{
-			ID:      result.ID,
-			Payload: result.Payload,
-		})
-	}
-
-	return points, nil
-}
-
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
 }

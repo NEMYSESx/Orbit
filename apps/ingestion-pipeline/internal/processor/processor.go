@@ -22,6 +22,7 @@ type DocumentProcessor struct {
 	textCleaner *text.Cleaner
 	validator   *validator.FileValidator
 	chunker     *chunking.AgenticChunker
+	producer    *kafka.Producer
 }
 
 func New(cfg *config.Config) (*DocumentProcessor, error) {
@@ -34,12 +35,25 @@ func New(cfg *config.Config) (*DocumentProcessor, error) {
 		RequestTimeout: time.Second * 30,
 	}
 
+	// Initialize Kafka producer
+	producer, err := kafka.NewProducer(&kafka.ConfigMap{
+		"bootstrap.servers": "localhost:9092",
+		"acks":             "all",
+		"retries":          "3",
+		"batch.size":       "16384",
+		"linger.ms":        "1",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Kafka producer: %w", err)
+	}
+
 	dp := &DocumentProcessor{
 		config:      cfg,
 		tikaClient:  tika.NewClient(&cfg.Tika),
 		textCleaner: text.NewCleaner(cfg.Processing.EnableTextClean),
 		validator:   validator.NewFileValidator(&cfg.Processing),
 		chunker:     chunking.NewAgenticChunkerWithConfig(chunkingConfig),
+		producer:    producer,
 	}
 
 	return dp, nil
@@ -89,13 +103,12 @@ func (dp *DocumentProcessor) ProcessDocument(ctx context.Context, file multipart
 			fmt.Printf("Agentic chunking failed for %s: %v\n", header.Filename, err)
 		} else {
 			chunks = chunkOutputs
-			kafkaConsumer(chunks,"documents")
+			kafkaProducer(chunks, "documents")
 			fmt.Printf("Successfully created %d chunks for document: %s\n", len(chunks), header.Filename)
 		}
 	}
 
-	fmt.Printf("Successfully processed document: %s\n", header.Filename)
-	printChunksStructured(chunks)
+	fmt.Printf("Successfully processed document: %s\n", header.Filename)	
 	result := &models.ProcessResult{
 		ExtractedContent: extracted,
 		Chunks:           chunks,
@@ -139,8 +152,6 @@ func (dp *DocumentProcessor) GetChunkingStatistics(result *models.ProcessResult)
 		avgWords = float64(totalWords) / float64(len(result.Chunks))
 	}
 
-
-
 	return map[string]interface{}{
 		"total_chunks":              len(result.Chunks),
 		"total_words":               totalWords,
@@ -150,33 +161,32 @@ func (dp *DocumentProcessor) GetChunkingStatistics(result *models.ProcessResult)
 		"complexities":              complexities,
 		"chunking_enabled":          true,
 	}
-	
 }
 
-func printChunksStructured(chunks interface{}) {
-    prettyJSON, err := json.MarshalIndent(chunks, "", "  ")
-    if err != nil {
-        fmt.Println("Failed to generate structured output:", err)
-        return
-    }
-    fmt.Println("The output is:\n", string(prettyJSON))
-}
-
-func kafkaConsumer(data []models.ChunkOutput, topic string){
-	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers":"localhost:9092"})
-	if err != nil{
-		fmt.Printf("Failed to send data to consumer%v",err)
-	}
-
-	err = p.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
-		Value:          []byte(fmt.Sprintf("%v", data)),
-	}, nil)
-
+func kafkaProducer(chunks []models.ChunkOutput, topic string) {
+	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": "localhost:9092"})
 	if err != nil {
-		fmt.Printf("Produce error: %v\n", err)
+		fmt.Printf("Failed to create producer: %v\n", err)
+		return
+	}
+	defer p.Close()
+
+	for i, chunk := range chunks {
+		chunkJSON, err := json.Marshal(chunk)
+		if err != nil {
+			fmt.Printf("Failed to marshal chunk %d: %v\n", i, err)
+			continue
+		}
+
+		err = p.Produce(&kafka.Message{
+			TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
+			Value:          chunkJSON,
+		}, nil)
+
+		if err != nil {
+			fmt.Printf("Failed to produce chunk %d: %v\n", i, err)
+		}
 	}
 
-	p.Flush(500)
-	
+	p.Flush(15 * 1000)
 }

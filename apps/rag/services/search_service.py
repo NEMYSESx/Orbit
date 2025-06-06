@@ -1,164 +1,250 @@
-import numpy as np
+import json
+import re
 from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime
+from dataclasses import dataclass
+from rag.models.gemini_client import GeminiClient
+from rag.models.qdrant_client import SimpleQdrantClient
 
-from models.embeddings import EmbeddingModel
-from models.qdrant_client import QdrantClientWrapper
-from config import settings
+@dataclass
+class SearchResult:
+    score: float
+    payload: Dict[str, Any]
+    text: str
 
-class SearchService:
+class MetadataSearchService:
+    def __init__(self):
+        self.gemini_client = GeminiClient()
+        self.qdrant_client = SimpleQdrantClient()
+        
+        self.metadata_schema = {
+            "category": ["technical", "business", "general", "academic"],
+            "complexity": ["basic", "moderate", "advanced", "expert"],
+            "document_type": ["application/pdf", "text/plain", "application/json", "text/html"],
+            "language": ["en", "es", "fr", "de", "zh", "ja"],
+            "sentiment": ["positive", "negative", "neutral"],
+            "topic": "string",  
+            "entities": "list",  
+            "keywords": "list" 
+        }
     
-    def __init__(
-        self,
-        qdrant_client: Optional[QdrantClientWrapper] = None,
-        embedding_model: Optional[EmbeddingModel] = None
-    ):
-        self.qdrant_client = qdrant_client or QdrantClientWrapper()
-        self.embedding_model = embedding_model or EmbeddingModel()
+    def _create_metadata_extraction_prompt(self, query: str) -> str:
+        return f"""
+Analyze the following user query and extract relevant metadata that could be used for filtering search results.
+
+User Query: "{query}"
+
+Extract metadata based on this schema:
+- category: {self.metadata_schema['category']} (choose most relevant)
+- complexity: {self.metadata_schema['complexity']} (infer from query sophistication)
+- document_type: {self.metadata_schema['document_type']} (if query mentions specific file types)
+- language: {self.metadata_schema['language']} (language of the query)
+- sentiment: {self.metadata_schema['sentiment']} (overall tone of the query)
+- topic: (main topic/subject area as a string)
+- entities: (list of specific names, tools, technologies, people mentioned)
+- keywords: (list of 3-5 key terms for search)
+
+Also provide an "enhanced_query" - a semantically improved version of the original query, stripped of metadata phrases and optimized for embedding-based search.
+
+Return your response as valid JSON in this format:
+{{
+    "metadata": {{
+        "category": "value_or_null",
+        "complexity": "value_or_null",
+        "document_type": "value_or_null",
+        "language": "value_or_null",
+        "sentiment": "value_or_null",
+        "topic": "value_or_null",
+        "entities": ["entity1", "entity2"] or null,
+        "keywords": ["keyword1", "keyword2", "keyword3"] or null
+    }},
+    "enhanced_query": "semantically enhanced version of the query"
+}}
+
+Only include metadata fields that are clearly identifiable from the query. Use null for uncertain fields.
+"""
+    
+    def _extract_metadata_and_enhance_query(self, query: str) -> Tuple[Dict[str, Any], str]:
+        try:
+            prompt = self._create_metadata_extraction_prompt(query)
+            response = self.gemini_client.generate_text(prompt, temperature=0.3)
+            
+            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            if json_match:
+                result = json.loads(json_match.group())
+                metadata = result.get("metadata", {})
+                enhanced_query = result.get("enhanced_query", query)
+                
+                cleaned_metadata = self._validate_and_clean_metadata(metadata)
+                
+                return cleaned_metadata, enhanced_query
+            else:
+                print("Warning: Could not extract JSON from LLM response")
+                return {}, query
+                
+        except Exception as e:
+            print(f"Error in metadata extraction: {e}")
+            return {}, query
+    
+    def _validate_and_clean_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        cleaned = {}
+        
+        for key, value in metadata.items():
+            if value is None or value == "":
+                continue
+                
+            if key in self.metadata_schema:
+                schema_type = self.metadata_schema[key]
+                
+                if isinstance(schema_type, list):
+                    if value in schema_type:
+                        cleaned[key] = value
+                    else:
+                        print(f"Warning: Invalid value '{value}' for {key}, skipping")
+                elif schema_type == "string":
+                    if isinstance(value, str) and len(value.strip()) > 0:
+                        cleaned[key] = value.strip()
+                elif schema_type == "list":
+                    if isinstance(value, list) and len(value) > 0:
+                        clean_list = [item.strip() for item in value if isinstance(item, str) and len(item.strip()) > 0]
+                        if clean_list:
+                            cleaned[key] = clean_list
+            else:
+                print(f"Warning: Unknown metadata key '{key}', skipping")
+        
+        return cleaned
     
     def search(
         self, 
-        query_text: str,
-        collection_name: Optional[str] = None,
-        limit: int = 5,
-        filter_conditions: Optional[Dict[str, Any]] = None,
-        time_priority: float = 0.5
-    ) -> List[Any]:
+        query: str, 
+        collection_name: str,
+        limit: int = 10,
+        additional_filters: Optional[Dict[str, Any]] = None,
+        fallback_strategy: str = "progressive"
+    ) -> List[SearchResult]:
+        print(f"Processing query: '{query}'")
+        
+        metadata, enhanced_query = self._extract_metadata_and_enhance_query(query)        
         try:
-            if not collection_name:
-                relevant_collections = self._identify_relevant_collections(query_text)
-                if not relevant_collections:
-                    print("No relevant collections found for the query")
-                    return []
-                
-                all_results = []
-                for collection, confidence in relevant_collections:
-                    try:
-                        collection_results = self._search_single_collection(
-                            collection,
-                            query_text,
-                            limit,
-                            filter_conditions
-                        )
-                        for result in collection_results:
-                            result.score *= confidence
-                        all_results.extend(collection_results)
-                    except Exception as e:
-                        print(f"Error searching collection {collection}: {str(e)}")
-                        continue
-                
-                all_results.sort(key=lambda x: x.score, reverse=True)
-                results = all_results[:limit]
-                
-            else:
-                results = self._search_single_collection(
-                    collection_name,
-                    query_text,
-                    limit,
-                    filter_conditions
-                )
-            
-            if not results:
-                print("No results found")
-                return []
-            
-            results = self._apply_time_prioritization(results, time_priority)
-            return results[:limit]
-            
+            query_vector = self.gemini_client.generate_embedding(enhanced_query)
         except Exception as e:
-            print(f"Search error: {str(e)}")
+            print(f"Error generating embedding: {e}")
             return []
+        
+        results = self._search_with_fallback(
+            collection_name, query_vector, metadata, additional_filters, 
+            limit, fallback_strategy
+        )
+        
+        return results
     
-    def _search_single_collection(
+    def _search_with_fallback(
         self,
         collection_name: str,
-        query_text: str,
+        query_vector: List[float],
+        metadata: Dict[str, Any],
+        additional_filters: Optional[Dict[str, Any]],
         limit: int,
-        filter_conditions: Optional[Dict[str, Any]] = None
-    ) -> List[Any]:
-        query_vector = self.embedding_model.encode(query_text).tolist()
+        strategy: str
+    ) -> List[SearchResult]:
+        all_filters = {}
+        if metadata:
+            all_filters.update(metadata)
+        if additional_filters:
+            all_filters.update(additional_filters)
         
-        return self.qdrant_client.search(
-            collection_name,
-            query_vector,
-            limit=limit,
-            filter_conditions=filter_conditions
-        )
+        if strategy == "progressive":
+            return self._progressive_search(collection_name, query_vector, all_filters, limit)
+        elif strategy == "strict":
+            return self._strict_search(collection_name, query_vector, all_filters, limit)
+        else:  
+            return self._open_search(collection_name, query_vector, limit)
     
-    def _identify_relevant_collections(self, query_text: str) -> List[Tuple[str, float]]:
-        collections = self._get_available_collections()
-        if not collections:
-            return []
+    def _progressive_search(
+        self, 
+        collection_name: str, 
+        query_vector: List[float], 
+        filters: Dict[str, Any], 
+        limit: int
+    ) -> List[SearchResult]:
+        if not filters:
+            return self._execute_search(collection_name, query_vector, None, limit)
         
-        if len(collections) == 1:
-            return [(collections[0], 1.0)]
+        print(f"Trying search with all filters: {filters}")
+        results = self._execute_search(collection_name, query_vector, filters, limit)
         
-        try:
-            query_vector = self.embedding_model.encode(query_text).tolist()
-            collection_scores = []
-            
-            for collection in collections:
-                collection_desc = f"Documents about {collection}"
-                collection_embedding = self.embedding_model.encode(collection_desc).tolist()
-                score = self._vector_similarity(query_vector, collection_embedding)
+        if results:
+            return results
+        
+        fallback_order = ["document_type", "sentiment", "complexity", "category"]
+        current_filters = filters.copy()
+        
+        for filter_to_remove in fallback_order:
+            if filter_to_remove in current_filters:
+                current_filters.pop(filter_to_remove)
                 
-                if score >= settings.COLLECTION_SIMILARITY_THRESHOLD:
-                    collection_scores.append((collection, score))
-            
-            collection_scores.sort(key=lambda x: x[1], reverse=True)
-            return collection_scores
-            
-        except Exception as e:
-            print(f"Error in collection selection: {str(e)}")
+                results = self._execute_search(collection_name, query_vector, current_filters, limit)
+                if results:
+                    return results
+        
+        return self._execute_search(collection_name, query_vector, None, limit)
+    
+    def _strict_search(
+        self, 
+        collection_name: str, 
+        query_vector: List[float], 
+        filters: Dict[str, Any], 
+        limit: int
+    ) -> List[SearchResult]:
+        if not filters:
             return []
+        
+        return self._execute_search(collection_name, query_vector, filters, limit)
     
-    def _vector_similarity(self, vec1: List[float], vec2: List[float]) -> float:
-        vec1 = np.array(vec1)
-        vec2 = np.array(vec2)
-        return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
+    def _open_search(
+        self, 
+        collection_name: str, 
+        query_vector: List[float], 
+        limit: int
+    ) -> List[SearchResult]:
+        return self._execute_search(collection_name, query_vector, None, limit)
     
-    def _get_available_collections(self) -> List[str]:
+    def _execute_search(
+        self, 
+        collection_name: str, 
+        query_vector: List[float], 
+        filters: Optional[Dict[str, Any]], 
+        limit: int
+    ) -> List[SearchResult]:
         try:
-            return self.qdrant_client.list_collections()
+            search_results = self.qdrant_client.search(
+                collection_name=collection_name,
+                query_vector=query_vector,
+                limit=limit,
+                filter_conditions=filters
+            )
+            
+            formatted_results = []
+            for result in search_results:
+                formatted_results.append(SearchResult(
+                    score=result.score,
+                    payload=result.payload,
+                    text=result.payload.get('text', '')
+                ))
+            
+            return formatted_results
+            
         except Exception as e:
-            print(f"Error retrieving collections: {str(e)}")
+            print(f"Error in vector search: {e}")
             return []
     
-    def _apply_time_prioritization(
-        self,
-        results: List[Any],
-        time_priority: float
-    ) -> List[Any]:
-        if not results or time_priority <= 0:
-            return results
-            
-        time_priority = max(0.0, min(1.0, time_priority))
+    def explain_search(self, query: str) -> Dict[str, Any]:
+        metadata, enhanced_query = self._extract_metadata_and_enhance_query(query)
         
-        now_timestamp = int(datetime.now().timestamp())
-        
-        valid_timestamps = []
-        for result in results:
-            if "timestamp" in result.payload and isinstance(result.payload["timestamp"], (int, float)):
-                valid_timestamps.append(int(result.payload["timestamp"]))
-        
-        if not valid_timestamps:
-            return results
-            
-        oldest_timestamp = min(valid_timestamps)
-        time_range = max(1, now_timestamp - oldest_timestamp)  
-        
-        rescored_results = []
-        for result in results:
-            recency_score = 0
-            
-            if "timestamp" in result.payload and isinstance(result.payload["timestamp"], (int, float)):
-                timestamp = int(result.payload["timestamp"])
-                recency_score = (timestamp - oldest_timestamp) / time_range
-            
-            combined_score = (1 - time_priority) * result.score + time_priority * recency_score
-            
-            result.score = combined_score
-            rescored_results.append(result)
-        
-        rescored_results.sort(key=lambda x: x.score, reverse=True)
-        return rescored_results
+        return {
+            "original_query": query,
+            "extracted_metadata": metadata,
+            "enhanced_query": enhanced_query,
+            "would_filter_by": list(metadata.keys()) if metadata else "No filters",
+            "search_strategy": "Semantic similarity search with metadata filtering"
+        }
+
