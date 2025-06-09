@@ -40,14 +40,14 @@ jobs:
         run: echo "GO111MODULE=on" >> $GITHUB_ENV
 
       - name: Run Tests for embedding-pipeline
-        working-directory: ./embedding-pipeline
+        working-directory: ./apps/embedding-pipeline
         run: |
           go mod tidy
           go mod verify
           go test -v ./...
 
       - name: Run Tests for ingestion-pipeline
-        working-directory: ./ingestion-pipeline
+        working-directory: ./apps/ingestion-pipeline
         run: |
           go mod tidy
           go mod verify
