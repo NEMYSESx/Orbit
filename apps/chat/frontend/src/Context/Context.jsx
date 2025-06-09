@@ -114,13 +114,21 @@ export const ContextProvider = (props) => {
 
     setConversation((prev) => {
       let updatedMessages;
-      if (isRegenerating && prev.messages.length >= 2) {
-        updatedMessages = [...prev.messages.slice(0, prev.messages.length - 1), botMessagePlaceholder];
+      if (isRegenerating) {
+        let found = false;
+        updatedMessages = [...prev.messages].map((msg) => {
+          if (!found && msg.type === "bot" && msg.text === "...") {
+            found = true;
+            return botMessagePlaceholder;
+          }
+          return msg;
+        });
       } 
       else {
         updatedMessages = [...(prev.messages || []), userMessage, botMessagePlaceholder];
       }
-      return{
+
+      return {
         ...prev,
         messages: updatedMessages,
       };
