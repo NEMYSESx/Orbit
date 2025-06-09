@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package log;
+
+option go_package = "./proto";
+
+service LogIngester {
+  rpc SendLogs(LogBatch) returns (LogResponse);
+  rpc SendLogStream(stream LogEntry) returns (LogResponse);
+}
+
+message LogEntry {
+  string timestamp = 1;
+  string level = 2;
+  string type = 3;
+  string message = 4;
+  string source = 5;
+  string hostname = 6;
+  string environment = 7;
+  string facility = 8;
+  string category = 9;
+  string priority = 10;
+  map<string, string> metadata = 11;
+}
+
+message LogBatch {
+  repeated LogEntry logs = 1;
+}
+
+message LogResponse {
+  bool success = 1;
+  string message = 2;
+  int32 processed_count = 3;
+}
