@@ -21,7 +21,7 @@ type QdrantClient struct {
 }
 
 type QdrantPoint struct {
-	ID      interface{}            `json:"id"` // Can be string (UUID) or uint64
+	ID      interface{}            `json:"id"` 
 	Vector  []float32              `json:"vector"`
 	Payload map[string]interface{} `json:"payload"`
 }
@@ -71,7 +71,7 @@ func (qc *QdrantClient) createCollectionIfNotExistsWithSize(vectorSize int) erro
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusOK {
-		return nil // Collection exists
+		return nil 
 	}
 	
 	if resp.StatusCode != http.StatusNotFound {
@@ -79,7 +79,6 @@ func (qc *QdrantClient) createCollectionIfNotExistsWithSize(vectorSize int) erro
 		return fmt.Errorf("unexpected status checking collection: %d, %s", resp.StatusCode, string(body))
 	}
 	
-	// Collection doesn't exist, create it
 
 	createReq := map[string]interface{}{
 		"vectors": map[string]interface{}{

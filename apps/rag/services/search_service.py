@@ -3,7 +3,7 @@ import re
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from rag.models.gemini_client import GeminiClient
-from rag.models.qdrant_client import SimpleQdrantClient
+from rag.models.qdrant_client import MyQdrantClient
 
 @dataclass
 class SearchResult:
@@ -11,15 +11,15 @@ class SearchResult:
     payload: Dict[str, Any]
     text: str
 
-class MetadataSearchService:
+class SearchService:
     def __init__(self):
         self.gemini_client = GeminiClient()
-        self.qdrant_client = SimpleQdrantClient()
+        self.qdrant_client = MyQdrantClient()
         
         self.metadata_schema = {
             "category": ["technical", "business", "general", "academic"],
             "complexity": ["basic", "moderate", "advanced", "expert"],
-            "document_type": ["application/pdf", "text/plain", "application/json", "text/html"],
+            "document_type": ["text/plain", "application/json", "text/html"],
             "language": ["en", "es", "fr", "de", "zh", "ja"],
             "sentiment": ["positive", "negative", "neutral"],
             "topic": "string",  
@@ -29,19 +29,19 @@ class MetadataSearchService:
     
     def _create_metadata_extraction_prompt(self, query: str) -> str:
         return f"""
-Analyze the following user query and extract relevant metadata that could be used for filtering search results.
+You are a metadata extraction expert. Analyze this user query and create the most useful metadata structure for search and filtering.
 
 User Query: "{query}"
 
-Extract metadata based on this schema:
-- category: {self.metadata_schema['category']} (choose most relevant)
-- complexity: {self.metadata_schema['complexity']} (infer from query sophistication)
-- document_type: {self.metadata_schema['document_type']} (if query mentions specific file types)
-- language: {self.metadata_schema['language']} (language of the query)
-- sentiment: {self.metadata_schema['sentiment']} (overall tone of the query)
-- topic: (main topic/subject area as a string)
-- entities: (list of specific names, tools, technologies, people mentioned)
-- keywords: (list of 3-5 key terms for search)
+Think about what characteristics would help identify similar queries or filter search results and Extract metadata based on this schema:
+- category: What domain/category does this belong to? (choose most relevant)
+- complexity: What's the complexity level? (infer from query sophistication)
+- document_type: if query mentions specific file types
+- language: language of the query
+- sentiment: overall tone of the query
+- topic: main topic/subject area as a string
+- entities: list of specific names, tools, technologies, people mentioned
+- keywords: list of 3-5 key terms for search
 
 Also provide an "enhanced_query" - a semantically improved version of the original query, stripped of metadata phrases and optimized for embedding-based search.
 
@@ -66,7 +66,15 @@ Only include metadata fields that are clearly identifiable from the query. Use n
     def _extract_metadata_and_enhance_query(self, query: str) -> Tuple[Dict[str, Any], str]:
         try:
             prompt = self._create_metadata_extraction_prompt(query)
-            response = self.gemini_client.generate_text(prompt, temperature=0.3)
+            response_generator = self.gemini_client.generate_text(prompt, temperature=0.3)
+            
+            response = ""
+            for chunk in response_generator:
+                response += chunk
+        
+            if not response.strip():
+                print("Warning: Empty response from LLM")
+                return {}, query
             
             json_match = re.search(r'\{.*\}', response, re.DOTALL)
             if json_match:
@@ -74,9 +82,7 @@ Only include metadata fields that are clearly identifiable from the query. Use n
                 metadata = result.get("metadata", {})
                 enhanced_query = result.get("enhanced_query", query)
                 
-                cleaned_metadata = self._validate_and_clean_metadata(metadata)
-                
-                return cleaned_metadata, enhanced_query
+                return metadata, enhanced_query
             else:
                 print("Warning: Could not extract JSON from LLM response")
                 return {}, query
@@ -84,33 +90,18 @@ Only include metadata fields that are clearly identifiable from the query. Use n
         except Exception as e:
             print(f"Error in metadata extraction: {e}")
             return {}, query
-    
-    def _validate_and_clean_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        
+        
+    def clean_filters(self, filters: Dict[str, Any]) -> Dict[str, Any]:
         cleaned = {}
-        
-        for key, value in metadata.items():
-            if value is None or value == "":
-                continue
-                
-            if key in self.metadata_schema:
-                schema_type = self.metadata_schema[key]
-                
-                if isinstance(schema_type, list):
-                    if value in schema_type:
-                        cleaned[key] = value
-                    else:
-                        print(f"Warning: Invalid value '{value}' for {key}, skipping")
-                elif schema_type == "string":
-                    if isinstance(value, str) and len(value.strip()) > 0:
-                        cleaned[key] = value.strip()
-                elif schema_type == "list":
-                    if isinstance(value, list) and len(value) > 0:
-                        clean_list = [item.strip() for item in value if isinstance(item, str) and len(item.strip()) > 0]
-                        if clean_list:
-                            cleaned[key] = clean_list
-            else:
-                print(f"Warning: Unknown metadata key '{key}', skipping")
-        
+        for key, value in filters.items():
+            if value is not None:
+                if isinstance(value, list):
+                    cleaned_list = [v for v in value if v is not None]
+                    if cleaned_list:  
+                        cleaned[key] = cleaned_list
+                else:
+                    cleaned[key] = value
         return cleaned
     
     def search(
@@ -118,8 +109,7 @@ Only include metadata fields that are clearly identifiable from the query. Use n
         query: str, 
         collection_name: str,
         limit: int = 10,
-        additional_filters: Optional[Dict[str, Any]] = None,
-        fallback_strategy: str = "progressive"
+        min_score: float = 0.7
     ) -> List[SearchResult]:
         print(f"Processing query: '{query}'")
         
@@ -130,85 +120,18 @@ Only include metadata fields that are clearly identifiable from the query. Use n
             print(f"Error generating embedding: {e}")
             return []
         
-        results = self._search_with_fallback(
-            collection_name, query_vector, metadata, additional_filters, 
-            limit, fallback_strategy
-        )
-        
-        return results
-    
-    def _search_with_fallback(
-        self,
-        collection_name: str,
-        query_vector: List[float],
-        metadata: Dict[str, Any],
-        additional_filters: Optional[Dict[str, Any]],
-        limit: int,
-        strategy: str
-    ) -> List[SearchResult]:
-        all_filters = {}
         if metadata:
-            all_filters.update(metadata)
-        if additional_filters:
-            all_filters.update(additional_filters)
-        
-        if strategy == "progressive":
-            return self._progressive_search(collection_name, query_vector, all_filters, limit)
-        elif strategy == "strict":
-            return self._strict_search(collection_name, query_vector, all_filters, limit)
-        else:  
-            return self._open_search(collection_name, query_vector, limit)
-    
-    def _progressive_search(
-        self, 
-        collection_name: str, 
-        query_vector: List[float], 
-        filters: Dict[str, Any], 
-        limit: int
-    ) -> List[SearchResult]:
-        if not filters:
-            return self._execute_search(collection_name, query_vector, None, limit)
-        
-        print(f"Trying search with all filters: {filters}")
-        results = self._execute_search(collection_name, query_vector, filters, limit)
-        
-        if results:
-            return results
-        
-        fallback_order = ["document_type", "sentiment", "complexity", "category"]
-        current_filters = filters.copy()
-        
-        for filter_to_remove in fallback_order:
-            if filter_to_remove in current_filters:
-                current_filters.pop(filter_to_remove)
-                
-                results = self._execute_search(collection_name, query_vector, current_filters, limit)
-                if results:
+            cleaned_metadata = self.clean_filters(metadata)
+            if cleaned_metadata:
+                print(f"Trying search with filters: {metadata}")
+                results = self.execute_search(collection_name, query_vector, metadata, limit)
+                if results and any(result.score >= min_score for result in results):
                     return results
         
-        return self._execute_search(collection_name, query_vector, None, limit)
+        print("Falling back to search without filters")
+        return self.execute_search(collection_name, query_vector, None, limit)
     
-    def _strict_search(
-        self, 
-        collection_name: str, 
-        query_vector: List[float], 
-        filters: Dict[str, Any], 
-        limit: int
-    ) -> List[SearchResult]:
-        if not filters:
-            return []
-        
-        return self._execute_search(collection_name, query_vector, filters, limit)
-    
-    def _open_search(
-        self, 
-        collection_name: str, 
-        query_vector: List[float], 
-        limit: int
-    ) -> List[SearchResult]:
-        return self._execute_search(collection_name, query_vector, None, limit)
-    
-    def _execute_search(
+    def execute_search(
         self, 
         collection_name: str, 
         query_vector: List[float], 
@@ -220,9 +143,12 @@ Only include metadata fields that are clearly identifiable from the query. Use n
                 collection_name=collection_name,
                 query_vector=query_vector,
                 limit=limit,
-                filter_conditions=filters
+                filter_conditions=filters,
+                hnsw_ef=256,         
+                exact=False,         
+                indexed_only=True    
             )
-            
+        
             formatted_results = []
             for result in search_results:
                 formatted_results.append(SearchResult(
@@ -230,21 +156,9 @@ Only include metadata fields that are clearly identifiable from the query. Use n
                     payload=result.payload,
                     text=result.payload.get('text', '')
                 ))
-            
+        
             return formatted_results
-            
+        
         except Exception as e:
             print(f"Error in vector search: {e}")
             return []
-    
-    def explain_search(self, query: str) -> Dict[str, Any]:
-        metadata, enhanced_query = self._extract_metadata_and_enhance_query(query)
-        
-        return {
-            "original_query": query,
-            "extracted_metadata": metadata,
-            "enhanced_query": enhanced_query,
-            "would_filter_by": list(metadata.keys()) if metadata else "No filters",
-            "search_strategy": "Semantic similarity search with metadata filtering"
-        }
-

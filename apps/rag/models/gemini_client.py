@@ -1,5 +1,5 @@
 import google.generativeai as genai
-from typing import List, Dict, Any, Optional
+from typing import List,Generator
 from rag.config import settings
 
 class GeminiClient:
@@ -8,15 +8,22 @@ class GeminiClient:
         genai.configure(api_key=api_key)
         self.llm_model = genai.GenerativeModel(settings.LLM_MODEL)
         
-    def generate_text(self, prompt: str, temperature: float = 0.7) -> str:
+    def generate_text(self, prompt: str, temperature: float = 0.6) -> Generator[str, None, None]:
         try:
             response = self.llm_model.generate_content(
                 prompt,
                 generation_config=genai.types.GenerationConfig(
                     temperature=temperature
-                )
+                ),
+                stream=True
             )
-            return response.text
+            full_response = ""
+            for chunk in response:
+                if chunk.text:
+                    full_response += chunk.text
+                    yield chunk.text 
+        
+            return full_response
         except Exception as e:
             print(f"Error generating text: {e}")
             raise
@@ -26,7 +33,7 @@ class GeminiClient:
             result = genai.embed_content(
                 model=settings.EMBEDDING_MODEL,
                 content=text,
-                task_type="retrieval_query"
+                task_type="RETRIEVAL_QUERY"
             )
             return result['embedding']
         except Exception as e:
