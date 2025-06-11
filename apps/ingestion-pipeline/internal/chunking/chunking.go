@@ -8,27 +8,30 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/NEMYSESx/Orbit/apps/ingestion-pipeline/internal/models"
 )
 
 type AgenticChunker struct {
-	apiKey     string
-	baseURL    string
-	client     *http.Client
-	maxRetries int
-	config     models.ChunkingConfig
+	apiKey      string
+	baseURL     string
+	client      *http.Client
+	maxRetries  int
+	config      models.ChunkingConfig
+	sectionSize int
 }
 
 func NewAgenticChunker(apiKey string) *AgenticChunker {
 	return &AgenticChunker{
-		apiKey:  apiKey,
-		baseURL: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent",
+		apiKey:      apiKey,
+		baseURL:     "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent",
 		client: &http.Client{
 			Timeout: 60 * time.Second,
 		},
-		maxRetries: 3,
+		maxRetries:  3,
+		sectionSize: 1000, 
 	}
 }
 
@@ -43,14 +46,20 @@ func NewAgenticChunkerWithConfig(config models.ChunkingConfig) *AgenticChunker {
 		maxRetries = 3
 	}
 
+	sectionSize := 3000
+	if config.SectionSize > 0 {
+		sectionSize = config.SectionSize
+	}
+
 	return &AgenticChunker{
-		apiKey:  config.GeminiAPIKey,
-		baseURL: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent",
+		apiKey:      config.GeminiAPIKey,
+		baseURL:     "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent",
 		client: &http.Client{
 			Timeout: timeout,
 		},
-		maxRetries: maxRetries,
-		config:     config,
+		maxRetries:  maxRetries,
+		config:      config,
+		sectionSize: sectionSize,
 	}
 }
 
@@ -59,25 +68,76 @@ func (ac *AgenticChunker) ChunkText(ctx context.Context, text string) (*models.C
 		return nil, fmt.Errorf("input text cannot be empty")
 	}
 
-	prompt := ac.buildChunkingPrompt(text)
+	sections := ac.divideIntoSections(text)
+	
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var allChunks []models.Chunk
+	var processingErrors []error
+
+	for i, section := range sections {
+		wg.Add(1)
+		go func(sectionIndex int, sectionText string) {
+			defer wg.Done()
+			
+			chunks, err := ac.processSectionConcurrently(ctx, sectionText, sectionIndex)
+			
+			mu.Lock()
+			if err != nil {
+				processingErrors = append(processingErrors, fmt.Errorf("section %d: %w", sectionIndex, err))
+			} else {
+				allChunks = append(allChunks, chunks...)
+			}
+			mu.Unlock()
+		}(i, section)
+	}
+
+	wg.Wait()
+
+	if len(processingErrors) > 0 {
+		return nil, fmt.Errorf("failed to process sections: %v", processingErrors)
+	}
+
+	result := &models.ChunkerResult{
+		Chunks:      allChunks,
+		TotalCount:  len(allChunks),
+		ProcessedAt: time.Now().UTC().Format(time.RFC3339),
+	}
+
+	return result, nil
+}
+
+func (ac *AgenticChunker) divideIntoSections(text string) []string {
+	words := strings.Fields(text)
+	var sections []string
+	
+	for i := 0; i < len(words); i += ac.sectionSize {
+		end := i + ac.sectionSize
+		if end > len(words) {
+			end = len(words)
+		}
+		
+		section := strings.Join(words[i:end], " ")
+		sections = append(sections, section)
+	}
+	
+	return sections
+}
+
+func (ac *AgenticChunker) processSectionConcurrently(ctx context.Context, sectionText string, sectionIndex int) ([]models.Chunk, error) {
+	prompt := ac.buildChunkingPrompt(sectionText)
 	
 	geminiResponse, err := ac.callGeminiAPI(ctx, prompt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call Gemini API: %w", err)
 	}
 
-	chunks, err := ac.parseGeminiResponse(geminiResponse)
+	chunks, err := ac.parseGeminiResponse(geminiResponse, sectionIndex)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse Gemini response: %w", err)
 	}
 
-	result := &models.ChunkerResult{
-		Chunks:      chunks,
-		TotalCount:  len(chunks),
-		ProcessedAt: time.Now().UTC().Format(time.RFC3339),
-	}
-
-	return result, nil
+	return chunks, nil
 }
 
 func (ac *AgenticChunker) ChunkTextWithSource(ctx context.Context, text string, sourceInfo models.SourceInfo) ([]models.ChunkOutput, error) {
@@ -190,8 +250,6 @@ func (ac *AgenticChunker) callGeminiAPI(ctx context.Context, prompt string) (str
 			lastErr = fmt.Errorf("failed to read response body: %w", err)
 			continue
 		}
-		fmt.Println("Raw Gemini response:", resp.Body)
-
 
 		var geminiResp models.GeminiResponse
 		if err := json.Unmarshal(body, &geminiResp); err != nil {
@@ -210,7 +268,7 @@ func (ac *AgenticChunker) callGeminiAPI(ctx context.Context, prompt string) (str
 	return "", fmt.Errorf("failed after %d retries: %w", ac.maxRetries, lastErr)
 }
 
-func (ac *AgenticChunker) parseGeminiResponse(response string) ([]models.Chunk, error) {
+func (ac *AgenticChunker) parseGeminiResponse(response string, sectionIndex int) ([]models.Chunk, error) {
 	response = strings.TrimSpace(response)
 	
 	if strings.HasPrefix(response, "```json") {
@@ -233,7 +291,7 @@ func (ac *AgenticChunker) parseGeminiResponse(response string) ([]models.Chunk, 
 
 	for i, geminiChunk := range geminiResp.Chunks {
 		chunk := models.Chunk{
-			ID:      fmt.Sprintf("chunk_%d_%d", time.Now().Unix(), i),
+			ID:      fmt.Sprintf("chunk_%d_%d_%d", time.Now().Unix(), sectionIndex, i),
 			Content: geminiChunk.Content,
 			Metadata: models.ChunkMetadata{
 				Topic:       geminiChunk.Topic,

@@ -14,7 +14,7 @@
   },
   "chunking": {
     "enabled": true,
-    "gemini_api_key": "AIzaSyCHrXPFGHX565uVzOVECqjsN6m77_VN9n0",
+    "gemini_api_key": "AIzaSyAMDcKJ5t_c1YMYdk7TqPiuwuYRGjhXxNI",
     "gemini_model": "gemini-1.5-flash-8b",
     "max_tokens": 8192,
     "temperature": 0.7

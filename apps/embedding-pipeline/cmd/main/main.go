@@ -54,10 +54,9 @@ func main() {
 
 			log.Printf("Received %d chunks to process", len(chunks))
 
-			var enrichedChunks []consumer.EnrichedChunk
 			var wg sync.WaitGroup
-			var mutex sync.Mutex
 			errorCount := 0
+			var errorMutex sync.Mutex
 
 			for i, chunk := range chunks {
 				wg.Add(1)
@@ -68,9 +67,9 @@ func main() {
 					if err != nil {
 						log.Printf("Error generating embedding for chunk %d (document: %s): %v", 
 							idx, c.Source.DocumentTitle, err)
-						mutex.Lock()
+						errorMutex.Lock()
 						errorCount++
-						mutex.Unlock()
+						errorMutex.Unlock()
 						return
 					}
 
@@ -79,9 +78,14 @@ func main() {
 						Embedding:   embedding,
 					}
 
-					mutex.Lock()
-					enrichedChunks = append(enrichedChunks, enrichedChunk)
-					mutex.Unlock()
+					err = qdrantClient.AddToBuffer(enrichedChunk)
+					if err != nil {
+						log.Printf("Error adding chunk to buffer: %v", err)
+						errorMutex.Lock()
+						errorCount++
+						errorMutex.Unlock()
+						return
+					}
 
 					log.Printf("Generated embedding for chunk %d: document='%s', chunk_index=%d, words=%d", 
 						idx, c.Source.DocumentTitle, c.ChunkMetadata.ChunkIndex, c.ChunkMetadata.WordCount)
@@ -91,26 +95,18 @@ func main() {
 			wg.Wait()
 
 			if errorCount > 0 {
-				log.Printf("Encountered %d errors during embedding generation", errorCount)
+				log.Printf("Encountered %d errors during processing", errorCount)
 			}
 
-			if len(enrichedChunks) == 0 {
-				log.Println("No successful embeddings generated, skipping batch")
-				continue
-			}
-
-			log.Printf("Successfully generated %d embeddings out of %d chunks", len(enrichedChunks), len(chunks))
-
-			err = qdrantClient.StoreEmbeddings(enrichedChunks)
-			if err != nil {
-				log.Printf("Error storing enriched chunks to Qdrant: %v", err)
-				continue
-			}
-
-			log.Printf("Successfully processed and stored %d chunks as separate points", len(enrichedChunks))
+			log.Printf("Successfully processed %d chunks", len(chunks)-errorCount)
 		}
 	}()
 
 	<-sigChan
 	log.Println("Shutting down embedding pipeline...")
+	
+	err = qdrantClient.FlushBuffer()
+	if err != nil {
+		log.Printf("Error flushing buffer during shutdown: %v", err)
+	}
 }

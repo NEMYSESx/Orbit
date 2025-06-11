@@ -72,7 +72,7 @@ services:
       - EMBEDDING_MODEL=models/text-embedding-004
       - EMBEDDING_DIMENSIONALITY=768
       - LLM_MODEL=gemini-2.0-flash
-      - GEMINI_API_KEY=AIzaSyBFSg6KmAUC7207D4IGfYnPNz1rfntV8E8
+      - GEMINI_API_KEY=AIzaSyAMDcKJ5t_c1YMYdk7TqPiuwuYRGjhXxNI
       - CONNECTION_TIMEOUT=15
 
   chat-backend:

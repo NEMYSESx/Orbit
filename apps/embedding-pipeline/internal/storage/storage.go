@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/NEMYSESx/Orbit/apps/embedding-pipeline/internal/config"
@@ -18,6 +19,12 @@ type QdrantClient struct {
 	apiKey     string
 	client     *http.Client
 	collection string
+	
+	buffer     []consumer.EnrichedChunk
+	bufferMu   sync.Mutex
+	bufferSize int
+	flushTimer *time.Timer
+	flushInterval time.Duration
 }
 
 type QdrantPoint struct {
@@ -38,9 +45,11 @@ type QdrantResponse struct {
 
 func NewQdrantClientWithConfig(cfg config.QdrantConfig) (*QdrantClient, error) {
 	client := &QdrantClient{
-		baseURL:    cfg.URL,
-		apiKey:     cfg.APIKey,
-		collection: cfg.Collection,
+		baseURL:       cfg.URL,
+		apiKey:        cfg.APIKey,
+		collection:    cfg.Collection,
+		bufferSize:    50, 
+		flushInterval: 5 * time.Second, 
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -79,11 +88,21 @@ func (qc *QdrantClient) createCollectionIfNotExistsWithSize(vectorSize int) erro
 		return fmt.Errorf("unexpected status checking collection: %d, %s", resp.StatusCode, string(body))
 	}
 	
-
 	createReq := map[string]interface{}{
 		"vectors": map[string]interface{}{
 			"size":     vectorSize,
 			"distance": "Cosine",
+			"hnsw_config": map[string]interface{}{
+				"m":            16,
+				"ef_construct": 200,
+			},
+			"quantization_config": map[string]interface{}{
+				"scalar": map[string]interface{}{
+					"type":       "int8",
+					"always_ram": true,
+				},
+			},
+			"on_disk": true,
 		},
 	}
 
@@ -114,7 +133,6 @@ func (qc *QdrantClient) createCollectionIfNotExistsWithSize(vectorSize int) erro
 	}
 	
 	fmt.Printf("Successfully created collection '%s' with vector size %d\n", qc.collection, vectorSize)
-
 	return nil
 }
 
@@ -152,9 +170,57 @@ func (qc *QdrantClient) createPayload(enrichedChunk consumer.EnrichedChunk) map[
 	return payload
 }
 
-func (qc *QdrantClient) StoreEmbeddings(enrichedChunks []consumer.EnrichedChunk) error {
+func (qc *QdrantClient) AddToBuffer(enrichedChunk consumer.EnrichedChunk) error {
+	qc.bufferMu.Lock()
+	defer qc.bufferMu.Unlock()
+	
+	qc.buffer = append(qc.buffer, enrichedChunk)
+	
+	if qc.flushTimer != nil {
+		qc.flushTimer.Stop()
+	}
+	qc.flushTimer = time.AfterFunc(qc.flushInterval, func() {
+		if err := qc.flushBuffer(); err != nil {
+			fmt.Printf("Error flushing buffer: %v\n", err)
+		}
+	})
+	
+	if len(qc.buffer) >= qc.bufferSize {
+		return qc.flushBufferLocked()
+	}
+	
+	return nil
+}
+
+func (qc *QdrantClient) flushBuffer() error {
+	qc.bufferMu.Lock()
+	defer qc.bufferMu.Unlock()
+	return qc.flushBufferLocked()
+}
+
+func (qc *QdrantClient) flushBufferLocked() error {
+	if len(qc.buffer) == 0 {
+		return nil
+	}
+	
+	chunks := make([]consumer.EnrichedChunk, len(qc.buffer))
+	copy(chunks, qc.buffer)
+	qc.buffer = qc.buffer[:0]
+	
+	if qc.flushTimer != nil {
+		qc.flushTimer.Stop()
+	}
+	
+	return qc.storeEmbeddingsInternal(chunks)
+}
+
+func (qc *QdrantClient) FlushBuffer() error {
+	return qc.flushBuffer()
+}
+
+func (qc *QdrantClient) storeEmbeddingsInternal(enrichedChunks []consumer.EnrichedChunk) error {
 	if len(enrichedChunks) == 0 {
-		return fmt.Errorf("no chunks to store")
+		return nil
 	}
 
 	var points []QdrantPoint
@@ -204,15 +270,13 @@ func (qc *QdrantClient) StoreEmbeddings(enrichedChunks []consumer.EnrichedChunk)
 	}
 
 	fmt.Printf("Successfully stored %d embeddings as separate points\n", len(enrichedChunks))
-	
-	for i, chunk := range enrichedChunks {
-		fmt.Printf("  Point %d: Document='%s', ChunkIndex=%d, WordCount=%d\n", 
-			i+1, chunk.Source.DocumentTitle, chunk.ChunkMetadata.ChunkIndex, chunk.ChunkMetadata.WordCount)
-	}
-	
 	return nil
 }
 
+func (qc *QdrantClient) StoreEmbeddings(enrichedChunks []consumer.EnrichedChunk) error {
+	return qc.storeEmbeddingsInternal(enrichedChunks)
+}
+
 func (qc *QdrantClient) StoreEmbedding(enrichedChunk consumer.EnrichedChunk) error {
-	return qc.StoreEmbeddings([]consumer.EnrichedChunk{enrichedChunk})
+	return qc.AddToBuffer(enrichedChunk)
 }

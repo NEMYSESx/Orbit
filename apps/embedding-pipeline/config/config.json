@@ -12,7 +12,7 @@
     "vector_size": 768
   },
   "gemini": {
-    "api_key": "AIzaSyCHrXPFGHX565uVzOVECqjsN6m77_VN9n0",
+    "api_key": "AIzaSyAMDcKJ5t_c1YMYdk7TqPiuwuYRGjhXxNI",
     "model": "text-embedding-004"
   }
 }
