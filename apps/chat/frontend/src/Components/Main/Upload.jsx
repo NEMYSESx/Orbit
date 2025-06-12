@@ -131,10 +131,9 @@ const DocumentUploadProcessor = () => {
     <div className="upload-container">
       <div className="upload-content">
         <div className="upload-card">
-          <h1 className="upload-title">📄 Document Processor</h1>
+          <h1 className="upload-title"> Upload Your Document</h1>
           <p className="upload-description">
-            Upload any document and we'll automatically extract, analyze and
-            index it for search
+            Got a file? Toss it in — we’ll handle the heavy lifting and get it search-ready in seconds
           </p>
 
           <div
@@ -181,6 +180,8 @@ const DocumentUploadProcessor = () => {
               {status.message}
             </div>
           )}
+          
+
 
           {fileInfo && (
             <div className="file-info">
