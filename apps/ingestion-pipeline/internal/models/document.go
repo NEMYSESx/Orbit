@@ -91,6 +91,7 @@ type ChunkingConfig struct {
 	MaxConcurrency int
 	RateLimitRPS   int
 	RequestTimeout time.Duration
+	SectionSize    int
 }
 
 type ChunkerResult struct {

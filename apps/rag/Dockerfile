@@ -1,31 +1,33 @@
-FROM python:3.10-slim as builder
+FROM python:3.12-slim AS builder
 
-WORKDIR /app
+WORKDIR /build
+
+ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    git \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 
-RUN pip install --upgrade pip && \
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('intfloat/multilingual-e5-large-instruct', local_dir='/app/model')"
+FROM python:3.12-slim AS production
 
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('/app/model')"
+WORKDIR /rag
 
-FROM python:3.10-slim
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/rag \
+    PATH="/opt/venv/bin:$PATH"
 
-WORKDIR /app
-
-COPY --from=builder /usr/local /usr/local
-COPY --from=builder /app/model /app/model
+COPY --from=builder /opt/venv /opt/venv
 
 COPY . .
-
-ENV PYTHONPATH=/app
 
 EXPOSE 8000
 

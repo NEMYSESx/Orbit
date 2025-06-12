@@ -1,0 +1,112 @@
+version: "3.8"
+
+services:
+  tika:
+    image: apache/tika:latest
+    container_name: tika
+    ports:
+      - "9998:9998"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.9.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
+      KAFKA_LISTENERS: "PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_HEAP_OPTS: "-Xmx1G -Xms1G"
+
+  ingestion-pipeline:
+    build:
+      context: ./apps/ingestion-pipeline
+      dockerfile: Dockerfile
+    image: ingestion-pipeline:latest
+    container_name: ingestion-pipeline
+    ports:
+      - "3001:3001"
+    depends_on:
+      - kafka
+      - tika
+    restart: unless-stopped
+
+  embedding-pipeline:
+    build:
+      context: ./apps/embedding-pipeline
+      dockerfile: Dockerfile
+    image: embedding-pipeline:latest
+    container_name: embedding-pipeline
+    ports:
+      - "3002:3002"
+    depends_on:
+      - kafka
+      - ingestion-pipeline
+    restart: unless-stopped
+
+  rag-api:
+    build:
+      context: ./apps/rag
+      dockerfile: Dockerfile
+    image: rag-api:latest
+    container_name: rag-api
+    ports:
+      - "8000:8000"
+    depends_on:
+      - embedding-pipeline
+    restart: unless-stopped
+    environment:
+      - QDRANT_URL=https://bad7e720-f630-4fe4-a36d-9e7f85ae7503.europe-west3-0.gcp.cloud.qdrant.io:6333
+      - QDRANT_API_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.o0-1435PBNpbvrb4AvciyNGW9XhYQc8SmP76Dcmk7s0
+      - COLLECTION_SIMILARITY_THRESHOLD=0.7
+      - CREATE_COLLECTIONS_DYNAMICALLY=true
+      - EMBEDDING_MODEL=models/text-embedding-004
+      - EMBEDDING_DIMENSIONALITY=768
+      - LLM_MODEL=gemini-2.0-flash
+      - GEMINI_API_KEY=AIzaSyAMDcKJ5t_c1YMYdk7TqPiuwuYRGjhXxNI
+      - CONNECTION_TIMEOUT=15
+
+  chat-backend:
+    build:
+      context: ./apps/chat/backend
+      dockerfile: Dockerfile
+    image: chat-backend:latest
+    container_name: chat-backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - rag-api
+    environment:
+      - INGESTION_URL=http://ingestion-pipeline:3001
+      - FRONTEND_URL=http://chat-frontend:5173
+    restart: unless-stopped
+
+  chat-frontend:
+    build:
+      context: ./apps/chat/frontend
+      dockerfile: Dockerfile
+    image: chat-frontend:latest
+    container_name: chat-frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - chat-backend
+      - ingestion-pipeline
+      - rag-api
+    environment:
+      - VITE_BACKEND_URL=http://localhost:8080
+      - VITE_API_URL=http://localhost:8000
+    restart: unless-stopped
+
+networks:
+  default:
+    name: chat-app-network

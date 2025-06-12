@@ -2,7 +2,6 @@ package processor
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"mime/multipart"
 	"time"
@@ -22,6 +21,7 @@ type DocumentProcessor struct {
 	textCleaner *text.Cleaner
 	validator   *validator.FileValidator
 	chunker     *chunking.AgenticChunker
+	producer    *kafka.Producer
 }
 
 func New(cfg *config.Config) (*DocumentProcessor, error) {
@@ -34,12 +34,30 @@ func New(cfg *config.Config) (*DocumentProcessor, error) {
 		RequestTimeout: time.Second * 30,
 	}
 
+	chunker := chunking.NewAgenticChunker(chunkingConfig)
+	
+	if err := chunker.InitializeKafkaStreaming("kafka:29092", "documents"); err != nil {
+		return nil, fmt.Errorf("failed to initialize Kafka streaming: %w", err)
+	}
+
+	producer, err := kafka.NewProducer(&kafka.ConfigMap{
+		"bootstrap.servers": "kafka:29092",
+		"acks":             "all",
+		"retries":          "3",
+		"batch.size":       "16384",
+		"linger.ms":        "1",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create main Kafka producer: %w", err)
+	}
+
 	dp := &DocumentProcessor{
 		config:      cfg,
 		tikaClient:  tika.NewClient(&cfg.Tika),
 		textCleaner: text.NewCleaner(cfg.Processing.EnableTextClean),
 		validator:   validator.NewFileValidator(&cfg.Processing),
-		chunker:     chunking.NewAgenticChunkerWithConfig(chunkingConfig),
+		chunker:     chunker,
+		producer:    producer,
 	}
 
 	return dp, nil
@@ -76,7 +94,7 @@ func (dp *DocumentProcessor) ProcessDocument(ctx context.Context, file multipart
 
 	var chunks []models.ChunkOutput
 	if dp.config.Chunking.Enabled && dp.config.Chunking.GeminiAPIKey != "" {
-		fmt.Printf("Starting agentic chunking for document: %s\n", header.Filename)
+		fmt.Printf("Starting streaming agentic chunking for document: %s\n", header.Filename)
 		
 		sourceInfo := models.SourceInfo{
 			DocumentTitle: extracted.Metadata.Title,
@@ -84,18 +102,16 @@ func (dp *DocumentProcessor) ProcessDocument(ctx context.Context, file multipart
 			LastModified:  extracted.Metadata.LastModifiedDate,
 		}
 
-		chunkOutputs, err := dp.chunker.ChunkTextWithSource(ctx, cleanText, sourceInfo)
+		err := dp.chunker.ChunkTextStreaming(ctx, cleanText, sourceInfo)
 		if err != nil {
-			fmt.Printf("Agentic chunking failed for %s: %v\n", header.Filename, err)
+			fmt.Printf("Streaming agentic chunking failed for %s: %v\n", header.Filename, err)
 		} else {
-			chunks = chunkOutputs
-			kafkaConsumer(chunks,"documents")
-			fmt.Printf("Successfully created %d chunks for document: %s\n", len(chunks), header.Filename)
+			fmt.Printf("Successfully initiated streaming chunking for document: %s\n", header.Filename)
 		}
+		chunks = []models.ChunkOutput{}
 	}
 
-	fmt.Printf("Successfully processed document: %s\n", header.Filename)
-	printChunksStructured(chunks)
+	fmt.Printf("Successfully processed document: %s\n", header.Filename)	
 	result := &models.ProcessResult{
 		ExtractedContent: extracted,
 		Chunks:           chunks,
@@ -139,8 +155,6 @@ func (dp *DocumentProcessor) GetChunkingStatistics(result *models.ProcessResult)
 		avgWords = float64(totalWords) / float64(len(result.Chunks))
 	}
 
-
-
 	return map[string]interface{}{
 		"total_chunks":              len(result.Chunks),
 		"total_words":               totalWords,
@@ -149,34 +163,15 @@ func (dp *DocumentProcessor) GetChunkingStatistics(result *models.ProcessResult)
 		"sentiments":                sentiments,
 		"complexities":              complexities,
 		"chunking_enabled":          true,
+		"streaming_enabled":         true, 
 	}
-	
 }
 
-func printChunksStructured(chunks interface{}) {
-    prettyJSON, err := json.MarshalIndent(chunks, "", "  ")
-    if err != nil {
-        fmt.Println("Failed to generate structured output:", err)
-        return
-    }
-    fmt.Println("The output is:\n", string(prettyJSON))
-}
-
-func kafkaConsumer(data []models.ChunkOutput, topic string){
-	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers":"localhost:9092"})
-	if err != nil{
-		fmt.Printf("Failed to send data to consumer%v",err)
+func (dp *DocumentProcessor) Close() {
+	if dp.chunker != nil {
+		dp.chunker.Close()
 	}
-
-	err = p.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
-		Value:          []byte(fmt.Sprintf("%v", data)),
-	}, nil)
-
-	if err != nil {
-		fmt.Printf("Produce error: %v\n", err)
+	if dp.producer != nil {
+		dp.producer.Close()
 	}
-
-	p.Flush(500)
-	
 }

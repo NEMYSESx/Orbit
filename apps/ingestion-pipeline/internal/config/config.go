@@ -64,6 +64,7 @@ type ChunkingConfig struct {
 	GeminiModel  string  `json:"gemini_model"`
 	MaxTokens    int     `json:"max_tokens"`
 	Temperature  float64 `json:"temperature"`
+	SectionSize  int     `json:"sectionSize"`
 }
 
 type ProcessingConfig struct {

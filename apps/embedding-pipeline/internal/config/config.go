@@ -31,7 +31,6 @@ type GeminiConfig struct {
 	Model  string `json:"model"`
 }
 
-// LoadConfig reads configuration from a JSON file
 func LoadConfig(configPath string) (*Config, error) {
 	file, err := os.Open(configPath)
 	if err != nil {
@@ -46,7 +45,6 @@ func LoadConfig(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("failed to decode config: %w", err)
 	}
 
-	// Set defaults if not provided
 	if config.Kafka.BootstrapServers == "" {
 		config.Kafka.BootstrapServers = "localhost:9092"
 	}
@@ -74,7 +72,6 @@ func LoadConfig(configPath string) (*Config, error) {
 		config.Gemini.Model = "models/text-embedding-004"
 	}
 
-	// Validate required fields
 	if config.Gemini.APIKey == "" {
 		return nil, fmt.Errorf("gemini api_key is required")
 	}
@@ -82,11 +79,10 @@ func LoadConfig(configPath string) (*Config, error) {
 	return &config, nil
 }
 
-// GetConfig returns a default configuration (for backward compatibility)
 func GetConfig() *Config {
 	return &Config{
 		Kafka: KafkaConfig{
-			BootstrapServers: "localhost:9092",
+			BootstrapServers: "kafka:29092",
 			GroupID:          "embedding-pipeline-group",
 			Topic:            "document",
 			AutoOffsetReset:  "earliest",

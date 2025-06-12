@@ -75,10 +75,13 @@ const DocumentUploadProcessor = () => {
     formData.append("file", file);
 
     try {
-      const response = await fetch("http://localhost:8080/upload/upload", {
-        method: "POST",
-        body: formData,
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/upload/upload`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       const result = await response.json();
 

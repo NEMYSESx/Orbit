@@ -1,5 +1,5 @@
 from fastapi import File, UploadFile, APIRouter
-import requests
+import requests,os
 from typing import Dict
 
 router = APIRouter(prefix="/upload", tags=["upload"])
@@ -7,8 +7,9 @@ router = APIRouter(prefix="/upload", tags=["upload"])
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)) -> Dict:
     try:
+        ingestion_url = os.environ.get("INGESTION_URL", "http://localhost:3001")
         response = requests.post(
-            "http://localhost:3001/receive",
+            f"{ingestion_url}/receive",
             files={"document": (file.filename, file.file, file.content_type)}
         )
 

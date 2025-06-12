@@ -1,19 +1,36 @@
-FROM python:3.10-slim
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    build-essential \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache git gcc musl-dev librdkafka-dev pkgconfig
 
-COPY embedding-pipeline/requirements.txt .
+COPY go.mod go.sum ./
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN go mod download
 
-COPY embedding-pipeline/ /app/embedding-pipeline/
 
-ENV PYTHONPATH=/app
+COPY . .
 
-CMD ["python", "embedding-pipeline/cmd/main/main.py"]
+RUN CGO_ENABLED=1 go build -tags musl -o main ./cmd/main
+
+FROM alpine:3.19
+
+RUN apk add --no-cache ca-certificates librdkafka
+
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup
+
+WORKDIR /app
+
+COPY --from=builder /app/main .
+
+COPY config/config.json ./config/
+
+
+RUN chown appuser:appgroup /app/main
+
+USER appuser
+
+EXPOSE 3002
+
+CMD ["./main", "--config", "./config/config.json"]
