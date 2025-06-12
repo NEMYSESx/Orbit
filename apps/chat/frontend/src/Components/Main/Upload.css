@@ -1,70 +1,86 @@
 .upload-container {
-  min-height: 100vh;
+  height: 100vh;
   width: 100%;
+  background: #0f0f0f;
+  color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 2rem;
-  background-color: #ffffff;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .upload-content {
-  max-width: 800px;
-  margin: 0 auto;
+  text-align: center;
+  max-width: 600px;
   width: 100%;
 }
 
-.upload-card {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  padding: 2rem;
+.upload-title {
+  font-size: 2.75rem;
+  font-weight: 800;
+  background: linear-gradient(
+    270deg,
+    #faccdd,
+    #c1f5f0,
+    #fde68a,
+    #c7d2fe,
+    #fbcfe8,
+    #a7f3d0
+  );
+  background-size: 1200% 1200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: animatedGradient 8s ease infinite;
+  margin-bottom: 0.5rem;
 }
 
-.upload-title {
-  font-size: 2.5rem;
-  font-weight: bold;
-  margin-bottom: 1rem;
-  background: linear-gradient(to right, #7c3aed, #2563eb);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+@keyframes animatedGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
+
 
 .upload-description {
-  color: #4b5563;
-  font-size: 1.125rem;
+  font-size: 1rem;
+  font-weight: 400;
+  color: #9ca3af;
   margin-bottom: 2rem;
 }
 
 .drop-zone {
-  border: 3px dashed #e5e7eb;
+  border: 2px dashed #4b5563;
   border-radius: 1rem;
   padding: 3rem;
-  margin-bottom: 1.5rem;
-  text-align: center;
+  margin-bottom: 2rem;
+  background: rgba(255, 255, 255, 0.02);
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
-.drop-zone:hover {
-  border-color: #3b82f6;
-  background-color: #f0f9ff;
-}
-
+.drop-zone:hover,
 .drop-zone.drag-over {
-  border-color: #3b82f6;
-  background-color: #f0f9ff;
+  border-color: #0ea5e9;
+  background: rgba(14, 165, 233, 0.05);
   transform: scale(1.02);
 }
 
 .drop-zone-icon {
-  font-size: 3rem;
-  color: #3b82f6;
+  font-size: 2.5rem;
+  color: #22d3ee;
   margin-bottom: 1rem;
 }
 
 .drop-zone-text {
   font-size: 1.25rem;
-  color: #1f2937;
-  margin-bottom: 0.5rem;
+  color: #e5e7eb;
 }
 
 .drop-zone-subtext {
@@ -75,50 +91,60 @@
 .hidden-input {
   display: none;
 }
+@keyframes pastelFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
 
 .upload-button {
-  background: linear-gradient(to right, #3b82f6, #7c3aed);
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 9999px;
-  font-size: 1.125rem;
+  background: linear-gradient(
+    270deg,
+    #f6d365,
+    #fda085,
+    #ffecd2,
+    #a1c4fd,
+    #c2e9fb,
+    #e0c3fc,
+    #8fd3f4,
+    #d4fc79,
+    #96e6a1
+  );
+  background-size: 1800% 1800%;
+  animation: pastelFlow 15s ease infinite;
+
+  color: #ffffff;
   font-weight: 600;
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 9999px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  margin-bottom: 1rem;
-  display: inline-flex;
-  align-items: center;
+  font-size: 1rem;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.1);
 }
 
 .upload-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 20px rgba(255, 255, 255, 0.3);
 }
 
 .upload-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  transform: none;
 }
 
-.spinner {
-  width: 1.25rem;
-  height: 1.25rem;
-  border: 3px solid white;
-  border-top: 3px solid transparent;
-  border-radius: 50%;
-  margin-right: 0.75rem;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
 
 .supported-formats {
   font-size: 0.875rem;
   color: #6b7280;
+  margin-top: 1rem;
 }
 
 .status-message {
@@ -128,46 +154,16 @@
   font-weight: 500;
 }
 
-.status-message.processing {
-  background-color: #fef3c7;
-  color: #92400e;
-  border: 1px solid #f59e0b;
-}
-
 .status-message.success {
-  background-color: #d1fae5;
-  color: #065f46;
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #10b981;
   border: 1px solid #10b981;
 }
 
 .status-message.error {
-  background-color: #fee2e2;
-  color: #991b1b;
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #f87171;
   border: 1px solid #ef4444;
 }
 
-.file-info {
-  margin-top: 1.5rem;
-  padding: 1rem;
-  background-color: #f9fafb;
-  border-radius: 0.75rem;
-}
 
-.file-info-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  margin-bottom: 0.75rem;
-}
-
-.file-info-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: #4b5563;
-}
-
-.file-info-content p span {
-  font-weight: 500;
-  margin-right: 0.5rem;
-} 
