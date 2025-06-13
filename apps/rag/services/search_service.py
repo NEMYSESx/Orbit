@@ -104,7 +104,7 @@ Only include metadata fields that are clearly identifiable from the query. Use n
         query: str, 
         collection_name: str,
         limit: int = 10,
-        min_score: float = 0.7
+        min_score: float = 0.5
     ) -> List[SearchResult]:
         print(f"Processing query: '{query}'")
         
