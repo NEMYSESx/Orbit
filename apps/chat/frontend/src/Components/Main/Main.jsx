@@ -67,10 +67,10 @@ const Main = () => {
     allowSending,
     stopReply,
     stopIcon,
-    suggestions,
+    // suggestions,
   } = useContext(Context);
 
-  const cardText = suggestions;
+  // const cardText = suggestions;
 
   const chatEndRef = useRef(null);
   const scrollToBottom = () =>
@@ -87,35 +87,6 @@ const Main = () => {
       }
       return newMode;
     });
-  };
-
-  const emojis = ["❤️", "👍", "😂", "👎"]; // Added 👎
-
-  const [messageReactions, setMessageReactions] = useState({});
-  const [openEmojiPicker, setOpenEmojiPicker] = useState(null);
-
-  const handleReaction = (index, emojiIdx) => {
-    setMessageReactions((prev) => ({
-      ...prev,
-      [index]: emojiIdx,
-    }));
-    setOpenEmojiPicker(null);
-  };
-
-  const getReactionMessage = (emojiIdx) => {
-    switch (emojis[emojiIdx]) {
-      case "❤️":
-        return "Thanks, love it!";
-      case "👍":
-        return "Thank you!";
-      case "😂":
-        return "Thanks, humm!";
-      
-      case "👎":
-        return "How can I help you, give some details so I can help you better way";
-      default:
-        return "";
-    }
   };
 
   return (
@@ -167,69 +138,6 @@ const Main = () => {
                         <p
                           dangerouslySetInnerHTML={{ __html: message.text }}
                         ></p>
-                        {/* Reaction button and emoji picker */}
-                        <div
-                          style={{
-                            marginTop: "8px",
-                            position: "relative",
-                            display: "inline-block",
-                          }}
-                        >
-                          <button
-                            style={{
-                              fontSize: "1.2rem",
-                              marginRight: "6px",
-                              background: "none",
-                              border: "none",
-                              cursor: "pointer",
-                            }}
-                            onClick={() =>
-                              setOpenEmojiPicker(
-                                openEmojiPicker === index ? null : index
-                              )
-                            }
-                          >
-                            {messageReactions[index] !== undefined
-                              ? emojis[messageReactions[index]]
-                              : "😊"}
-                          </button>
-                          {openEmojiPicker === index && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                background: "#fff",
-                                border: "1px solid #ccc",
-                                borderRadius: "8px",
-                                padding: "6px 8px",
-                                zIndex: 10,
-                                display: "flex",
-                                gap: "6px",
-                                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                              }}
-                            >
-                              {emojis.map((emoji, emojiIdx) => (
-                                <button
-                                  key={emoji}
-                                  style={{
-                                    fontSize: "1.2rem",
-                                    background: "none",
-                                    border: "none",
-                                    cursor: "pointer",
-                                  }}
-                                  onClick={() => handleReaction(index, emojiIdx)}
-                                >
-                                  {emoji}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        {/* Show reaction message */}
-                        {messageReactions[index] !== undefined && (
-                          <div style={{ marginTop: "4px", color: "#888" }}>
-                            {getReactionMessage(messageReactions[index])}
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>

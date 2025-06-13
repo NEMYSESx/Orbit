@@ -8,7 +8,15 @@ const DocumentUploadProcessor = () => {
   const [fileInfo, setFileInfo] = useState(null);
   const fileInputRef = useRef(null);
 
-  const allowedTypes = [".pdf", ".doc", ".docx", ".txt", ".rtf", ".odt"];
+  const allowedTypes = [
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".txt",
+    ".rtf",
+    ".odt",
+    ".json",
+  ];
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return "0 Bytes";
@@ -133,7 +141,8 @@ const DocumentUploadProcessor = () => {
         <div className="upload-card">
           <h1 className="upload-title"> Upload Your Document</h1>
           <p className="upload-description">
-            Got a file? Toss it in — we’ll handle the heavy lifting and get it search-ready in seconds
+            Got a file? Toss it in — we’ll handle the heavy lifting and get it
+            search-ready in seconds
           </p>
 
           <div
@@ -180,8 +189,6 @@ const DocumentUploadProcessor = () => {
               {status.message}
             </div>
           )}
-          
-
 
           {fileInfo && (
             <div className="file-info">

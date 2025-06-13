@@ -25,6 +25,16 @@ type Client struct {
 	cleaner    *text.Cleaner
 }
 
+type JSONMetadata struct {
+	KeyCount     int                    `json:"keyCount"`
+	MaxDepth     int                    `json:"maxDepth"`
+	ArrayCount   int                    `json:"arrayCount"`
+	ObjectCount  int                    `json:"objectCount"`
+	DataTypes    map[string]int         `json:"dataTypes"`
+	TopLevelKeys []string               `json:"topLevelKeys"`
+	Structure    map[string]interface{} `json:"structure"`
+}
+
 func NewClient(cfg *config.TikaConfig) *Client {
 	return &Client{
 		config: cfg,
@@ -36,8 +46,13 @@ func NewClient(cfg *config.TikaConfig) *Client {
 }
 
 func (c *Client) ExtractWithMetadata(ctx context.Context, file multipart.File, header *multipart.FileHeader) (*models.ExtractedContent, error) {
-	var lastErr error
+	// Check if this is a JSON file
+	if header != nil && strings.ToLower(filepath.Ext(header.Filename)) == ".json" {
+		return c.extractJSONContent(ctx, file, header)
+	}
 
+	// Handle other file types with Tika
+	var lastErr error
 	for attempt := 0; attempt <= c.config.RetryAttempts; attempt++ {
 		if attempt > 0 {
 			select {
@@ -56,6 +71,224 @@ func (c *Client) ExtractWithMetadata(ctx context.Context, file multipart.File, h
 	}
 
 	return nil, fmt.Errorf("failed after %d attempts: %w", c.config.RetryAttempts+1, lastErr)
+}
+
+func (c *Client) extractJSONContent(ctx context.Context, file multipart.File, header *multipart.FileHeader) (*models.ExtractedContent, error) {
+	file.Seek(0, 0)
+
+	fileContent, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read JSON file content: %w", err)
+	}
+
+	// Parse JSON content
+	var jsonData interface{}
+	if err := json.Unmarshal(fileContent, &jsonData); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON content: %w", err)
+	}
+
+	// Extract structured information from JSON
+	jsonMeta := c.analyzeJSON(jsonData)
+	
+	// Convert JSON to readable text
+	cleanText := c.jsonToText(jsonData, 0)
+	wordCount := c.cleaner.CountWords(cleanText)
+	checksum := generateChecksum(fileContent)
+
+	// Extract basic metadata
+	title := ""
+	author := ""
+	language := "json"
+	
+	// Try to extract title from common JSON fields
+	if obj, ok := jsonData.(map[string]interface{}); ok {
+		if titleVal, exists := obj["title"]; exists {
+			if titleStr, ok := titleVal.(string); ok {
+				title = titleStr
+			}
+		}
+		if authorVal, exists := obj["author"]; exists {
+			if authorStr, ok := authorVal.(string); ok {
+				author = authorStr
+			}
+		}
+	}
+
+	filename := ""
+	filepath := ""
+	if header != nil && header.Filename != "" {
+		filename = header.Filename
+		filepath = filename
+		if title == "" {
+			// Use filename without extension as title if no title found
+			title = strings.TrimSuffix(filename, ".json")
+		}
+	}
+
+	// Create metadata with JSON-specific information
+	metadata := map[string]interface{}{
+		"content-type":     "application/json",
+		"json-key-count":   jsonMeta.KeyCount,
+		"json-max-depth":   jsonMeta.MaxDepth,
+		"json-array-count": jsonMeta.ArrayCount,
+		"json-object-count": jsonMeta.ObjectCount,
+		"json-data-types":  jsonMeta.DataTypes,
+		"json-top-keys":    jsonMeta.TopLevelKeys,
+		"json-structure":   jsonMeta.Structure,
+	}
+
+	return &models.ExtractedContent{
+		Metadata: models.DocumentMetadata{
+			Title:         title,
+			Filepath:      filepath,
+			FileSize:      int64(len(fileContent)),
+			Author:        author,
+			CreationDate:  nil, // JSON files don't typically have creation dates in content
+			Language:      language,
+			ContentType:   "application/json",
+			Checksum:      checksum,
+			ProcessedAt:   time.Now(),
+			ExtraMetadata: metadata,
+		},
+		CleanText: cleanText,
+		WordCount: wordCount,
+		PageCount: 1, // JSON files are considered single "page"
+	}, nil
+}
+
+func (c *Client) analyzeJSON(data interface{}) *JSONMetadata {
+	meta := &JSONMetadata{
+		DataTypes: make(map[string]int),
+		Structure: make(map[string]interface{}),
+	}
+
+	c.analyzeJSONRecursive(data, meta, 0, "")
+	return meta
+}
+
+func (c *Client) analyzeJSONRecursive(data interface{}, meta *JSONMetadata, depth int, path string) {
+	if depth > meta.MaxDepth {
+		meta.MaxDepth = depth
+	}
+
+	switch v := data.(type) {
+	case map[string]interface{}:
+		meta.ObjectCount++
+		meta.DataTypes["object"]++
+		
+		if depth == 0 {
+			// Capture top-level keys
+			for key := range v {
+				meta.TopLevelKeys = append(meta.TopLevelKeys, key)
+				meta.KeyCount++
+			}
+		}
+
+		// Build structure map for top-level
+		if depth <= 2 {
+			structObj := make(map[string]interface{})
+			for key, value := range v {
+				structObj[key] = c.getValueType(value)
+			}
+			if path == "" {
+				meta.Structure = structObj
+			}
+		}
+
+		for key, value := range v {
+			newPath := key
+			if path != "" {
+				newPath = path + "." + key
+			}
+			c.analyzeJSONRecursive(value, meta, depth+1, newPath)
+		}
+
+	case []interface{}:
+		meta.ArrayCount++
+		meta.DataTypes["array"]++
+		
+		for i, item := range v {
+			newPath := fmt.Sprintf("%s[%d]", path, i)
+			c.analyzeJSONRecursive(item, meta, depth+1, newPath)
+		}
+
+	case string:
+		meta.DataTypes["string"]++
+	case float64:
+		meta.DataTypes["number"]++
+	case bool:
+		meta.DataTypes["boolean"]++
+	case nil:
+		meta.DataTypes["null"]++
+	}
+}
+
+func (c *Client) getValueType(value interface{}) string {
+	switch value.(type) {
+	case map[string]interface{}:
+		return "object"
+	case []interface{}:
+		return "array"
+	case string:
+		return "string"
+	case float64:
+		return "number"
+	case bool:
+		return "boolean"
+	case nil:
+		return "null"
+	default:
+		return "unknown"
+	}
+}
+
+func (c *Client) jsonToText(data interface{}, depth int) string {
+	var builder strings.Builder
+	c.jsonToTextRecursive(data, &builder, depth, "")
+	return c.cleaner.Clean(builder.String())
+}
+
+func (c *Client) jsonToTextRecursive(data interface{}, builder *strings.Builder, depth int, prefix string) {
+	indent := strings.Repeat("  ", depth)
+	
+	switch v := data.(type) {
+	case map[string]interface{}:
+		for key, value := range v {
+			builder.WriteString(fmt.Sprintf("%s%s%s: ", indent, prefix, key))
+			
+			switch val := value.(type) {
+			case string:
+				builder.WriteString(fmt.Sprintf("%s\n", val))
+			case float64:
+				builder.WriteString(fmt.Sprintf("%.2f\n", val))
+			case bool:
+				builder.WriteString(fmt.Sprintf("%t\n", val))
+			case nil:
+				builder.WriteString("null\n")
+			case map[string]interface{}, []interface{}:
+				builder.WriteString("\n")
+				c.jsonToTextRecursive(value, builder, depth+1, "")
+			default:
+				builder.WriteString(fmt.Sprintf("%v\n", val))
+			}
+		}
+		
+	case []interface{}:
+		for i, item := range v {
+			c.jsonToTextRecursive(item, builder, depth, fmt.Sprintf("[%d] ", i))
+		}
+		
+	case string:
+		builder.WriteString(fmt.Sprintf("%s%s%s\n", indent, prefix, v))
+	case float64:
+		builder.WriteString(fmt.Sprintf("%s%s%.2f\n", indent, prefix, v))
+	case bool:
+		builder.WriteString(fmt.Sprintf("%s%s%t\n", indent, prefix, v))
+	case nil:
+		builder.WriteString(fmt.Sprintf("%s%snull\n", indent, prefix))
+	default:
+		builder.WriteString(fmt.Sprintf("%s%s%v\n", indent, prefix, v))
+	}
 }
 
 func (c *Client) extractWithMetadataAttempt(ctx context.Context, file multipart.File, header *multipart.FileHeader) (*models.ExtractedContent, error) {
@@ -89,6 +322,8 @@ func (c *Client) extractWithMetadataAttempt(ctx context.Context, file multipart.
 			contentType = "application/rtf"
 		case ".odt":
 			contentType = "application/vnd.oasis.opendocument.text"
+		case ".json":
+			contentType = "application/json"
 		}
 	}
 

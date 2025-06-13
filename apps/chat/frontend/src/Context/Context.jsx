@@ -140,7 +140,7 @@ export const ContextProvider = (props) => {
 
     const userPayload = {
       query: userPrompt,
-      gemini_api_key: "AIzaSyCHrXPFGHX565uVzOVECqjsN6m77_VN9n0",
+      gemini_api_key: "AIzaSyByCUsepBOtNC4xt1T30KBZKDrDScQArHo",
     };
 
     let botReply;

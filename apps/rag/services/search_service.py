@@ -15,17 +15,6 @@ class SearchService:
     def __init__(self):
         self.gemini_client = GeminiClient()
         self.qdrant_client = MyQdrantClient()
-        
-        self.metadata_schema = {
-            "category": ["technical", "business", "general", "academic"],
-            "complexity": ["basic", "moderate", "advanced", "expert"],
-            "document_type": ["text/plain", "application/json", "text/html"],
-            "language": ["en", "es", "fr", "de", "zh", "ja"],
-            "sentiment": ["positive", "negative", "neutral"],
-            "topic": "string",  
-            "entities": "list",  
-            "keywords": "list" 
-        }
     
     def _create_metadata_extraction_prompt(self, query: str) -> str:
         return f"""
@@ -93,9 +82,15 @@ Only include metadata fields that are clearly identifiable from the query. Use n
         
         
     def clean_filters(self, filters: Dict[str, Any]) -> Dict[str, Any]:
+        indexed_fields = {
+            'category', 'complexity', 'document_type', 'language', 
+            'sentiment', 'topic', 'entities', 'keywords'
+        }
         cleaned = {}
         for key, value in filters.items():
-            if value is not None:
+            if key not in indexed_fields:
+                continue
+            if value is not None and value !="":
                 if isinstance(value, list):
                     cleaned_list = [v for v in value if v is not None]
                     if cleaned_list:  
@@ -123,8 +118,8 @@ Only include metadata fields that are clearly identifiable from the query. Use n
         if metadata:
             cleaned_metadata = self.clean_filters(metadata)
             if cleaned_metadata:
-                print(f"Trying search with filters: {metadata}")
-                results = self.execute_search(collection_name, query_vector, metadata, limit)
+                print(f"Trying search with filters: {cleaned_metadata}")
+                results = self.execute_search(collection_name, query_vector, cleaned_metadata, limit)
                 if results and any(result.score >= min_score for result in results):
                     return results
         

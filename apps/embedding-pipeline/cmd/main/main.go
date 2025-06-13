@@ -39,11 +39,16 @@ func main() {
 		log.Fatalf("Failed to create Qdrant client: %v", err)
 	}
 
+	err = qdrantClient.CreatePayloadIndexes()
+	if err != nil {
+		log.Fatalf("Failed to create Qdrant payload indexes: %v", err)
+	}
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	log.Println("Starting embedding pipeline...")
-	
+
 	go func() {
 		for {
 			chunks, err := kafkaConsumer.ConsumeChunks()
@@ -65,7 +70,7 @@ func main() {
 
 					embedding, err := embedder.GenerateEmbedding(c.Text)
 					if err != nil {
-						log.Printf("Error generating embedding for chunk %d (document: %s): %v", 
+						log.Printf("Error generating embedding for chunk %d (document: %s): %v",
 							idx, c.Source.DocumentTitle, err)
 						errorMutex.Lock()
 						errorCount++
@@ -87,7 +92,7 @@ func main() {
 						return
 					}
 
-					log.Printf("Generated embedding for chunk %d: document='%s', chunk_index=%d, words=%d", 
+					log.Printf("Generated embedding for chunk %d: document='%s', chunk_index=%d, words=%d",
 						idx, c.Source.DocumentTitle, c.ChunkMetadata.ChunkIndex, c.ChunkMetadata.WordCount)
 				}(i, chunk)
 			}
@@ -104,7 +109,7 @@ func main() {
 
 	<-sigChan
 	log.Println("Shutting down embedding pipeline...")
-	
+
 	err = qdrantClient.FlushBuffer()
 	if err != nil {
 		log.Printf("Error flushing buffer during shutdown: %v", err)

@@ -7,14 +7,23 @@
   },
   "processing": {
     "max_file_size_mb": 100,
-    "supported_formats": ["pdf", "docx", "doc", "txt", "html", "rtf", "odt"],
+    "supported_formats": [
+      "pdf",
+      "docx",
+      "doc",
+      "txt",
+      "html",
+      "rtf",
+      "odt",
+      "json"
+    ],
     "batch_size": 5,
     "max_concurrency": 10,
     "enable_text_cleaning": true
   },
   "chunking": {
     "enabled": true,
-    "gemini_api_key": "AIzaSyAMDcKJ5t_c1YMYdk7TqPiuwuYRGjhXxNI",
+    "gemini_api_key": "AIzaSyByCUsepBOtNC4xt1T30KBZKDrDScQArHo",
     "gemini_model": "gemini-1.5-flash-8b",
     "max_tokens": 8192,
     "temperature": 0.7

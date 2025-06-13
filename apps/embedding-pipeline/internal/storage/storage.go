@@ -280,3 +280,50 @@ func (qc *QdrantClient) StoreEmbeddings(enrichedChunks []consumer.EnrichedChunk)
 func (qc *QdrantClient) StoreEmbedding(enrichedChunk consumer.EnrichedChunk) error {
 	return qc.AddToBuffer(enrichedChunk)
 }
+
+func (qc *QdrantClient) CreatePayloadIndexes() error {
+	fields := []string{
+		"category", "complexity", "document_type", "language",
+		"sentiment", "topic", "entities", "keywords",
+	}
+
+	for _, field := range fields {
+		url := fmt.Sprintf("%s/collections/%s/index", qc.baseURL, qc.collection)
+
+		payload := map[string]interface{}{
+			"field_name": field,
+			"field_schema": map[string]interface{}{
+				"type": "keyword",
+			},
+		}
+
+		jsonData, err := json.Marshal(payload)
+		if err != nil {
+			return fmt.Errorf("failed to marshal payload index request for field %s: %w", field, err)
+		}
+
+		req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonData))
+		if err != nil {
+			return fmt.Errorf("failed to create payload index request for field %s: %w", field, err)
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		if qc.apiKey != "" {
+			req.Header.Set("api-key", qc.apiKey)
+		}
+
+		resp, err := qc.client.Do(req)
+		if err != nil {
+			return fmt.Errorf("failed to send payload index request for field %s: %w", field, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return fmt.Errorf("failed to create index for field %s (status %d): %s", field, resp.StatusCode, string(body))
+		}
+	}
+
+	fmt.Println("All payload indexes created successfully.")
+	return nil
+}
