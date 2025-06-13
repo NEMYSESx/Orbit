@@ -1,4 +1,3 @@
-
 FROM python:3.12-slim AS builder
 
 WORKDIR /build
@@ -35,10 +34,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/rag \
     PATH="/opt/venv/bin:$PATH"
 
-
 COPY --from=builder /opt/venv /opt/venv
 
 RUN groupadd -r appgroup && useradd -r -g appgroup -d /rag appuser
+
+RUN mkdir -p /rag/data && chown -R appuser:appgroup /rag/data
 
 COPY --chown=appuser:appgroup . .
 
@@ -46,8 +46,9 @@ RUN rm -rf tests/ *.md .git* .pytest_cache/ __pycache__/ \
     && find . -name "*.pyc" -delete \
     && find . -name "__pycache__" -type d -exec rm -rf {} +
 
-USER appuser
+RUN chown -R appuser:appgroup /rag/data
 
+USER appuser
 
 EXPOSE 8080
 

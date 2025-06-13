@@ -29,7 +29,8 @@ class RAGService:
     def create_relevance_check_prompt(self, query: str, contexts: List[SearchResult]) -> str:
         contexts_text = ""
         for i, context in enumerate(contexts, 1):
-            contexts_text += f"Context {i}:\n{context.text[:500]}...\n\n"
+            text_sample = context.text[:800] if len(context.text) > 800 else context.text
+            contexts_text += f"Context {i}:\n{text_sample}...\n\n"
         
         return f"""
 Analyze if the provided contexts are relevant to answer the user's query.
@@ -216,8 +217,9 @@ Answer:"""
     
     def query(
         self, 
-        user_query: str, 
+        user_query: str,
         search_limit: int = 5,
+        score_threshold: float = 0.6 
     ) -> RAGResponse:
         print(f"Starting RAG Service for query: '{user_query}'")
         
@@ -241,10 +243,17 @@ Answer:"""
                 )
             
             print("Step 2: Checking context relevance and conflicts concurrently...")
+            high_score_results = [r for r in search_results if r.score >= score_threshold]
+            print(f"Results with score >= {score_threshold}: {len(high_score_results)}")
             is_relevant, conflict_response = self.check_relevance_and_conflicts_concurrent(user_query, search_results)
-            
+        
+            if not is_relevant and high_score_results:
+                print(f"Relevance check said NOT_RELEVANT, but found {len(high_score_results)} high-scoring results. Using score-based fallback.")
+                is_relevant = True
+                search_results = high_score_results
+        
             if not is_relevant:
-                print("Contexts not relevant, using direct LLM response")
+                print("Contexts not relevant and no high-scoring fallback, using direct LLM response")
                 answer = self.generate_direct_answer(user_query)
                 return RAGResponse(
                     answer=answer,
