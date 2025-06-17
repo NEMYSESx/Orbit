@@ -1,9 +1,8 @@
-import json
-import re
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from rag.models.gemini_client import GeminiClient
 from rag.models.qdrant_client import MyQdrantClient
+import re,json
 
 @dataclass
 class SearchResult:
@@ -15,14 +14,14 @@ class SearchService:
     def __init__(self):
         self.gemini_client = GeminiClient()
         self.qdrant_client = MyQdrantClient()
-    
-    def _create_metadata_extraction_prompt(self, query: str) -> str:
+        
+    def metadata_extraction_prompt(self, query: str) -> str:
         return f"""
 You are a metadata extraction expert. Analyze this user query and create the most useful metadata structure for search and filtering.
 
 User Query: "{query}"
 
-Think about what characteristics would help identify similar queries or filter search results and Extract metadata based on this schema:
+Extract metadata based on this schema:
 - category: What domain/category does this belong to? (choose most relevant)
 - complexity: What's the complexity level? (infer from query sophistication)
 - document_type: if query mentions specific file types
@@ -32,13 +31,16 @@ Think about what characteristics would help identify similar queries or filter s
 - entities: list of specific names, tools, technologies, people mentioned
 - keywords: list of 3-5 key terms for search
 
-Also provide an "enhanced_query" - a semantically improved version of the original query, stripped of metadata phrases and optimized for embedding-based search.
+Also provide an "enhanced_query" - a semantically improved version that:
+1. Expands abbreviated terms or unclear references
+2. Adds relevant synonyms for better matching
+3. Optimizes for embedding-based search
 
 Return your response as valid JSON in this format:
 {{
     "metadata": {{
         "category": "value_or_null",
-        "complexity": "value_or_null",
+        "complexity": "value_or_null", 
         "document_type": "value_or_null",
         "language": "value_or_null",
         "sentiment": "value_or_null",
@@ -46,15 +48,15 @@ Return your response as valid JSON in this format:
         "entities": ["entity1", "entity2"] or null,
         "keywords": ["keyword1", "keyword2", "keyword3"] or null
     }},
-    "enhanced_query": "semantically enhanced version of the query"
+    "enhanced_query": "enhanced version of the query"
 }}
 
-Only include metadata fields that are clearly identifiable from the query. Use null for uncertain fields.
+Only include metadata fields that are clearly identifiable. Use null for uncertain fields.
 """
     
-    def _extract_metadata_and_enhance_query(self, query: str) -> Tuple[Dict[str, Any], str]:
+    def extract_metadata_and_enhance_query(self, query: str) -> Tuple[Dict[str, Any], str]:
         try:
-            prompt = self._create_metadata_extraction_prompt(query)
+            prompt = self.metadata_extraction_prompt(query)
             response_generator = self.gemini_client.generate_text(prompt, temperature=0.3)
             
             response = ""
@@ -79,25 +81,6 @@ Only include metadata fields that are clearly identifiable from the query. Use n
         except Exception as e:
             print(f"Error in metadata extraction: {e}")
             return {}, query
-        
-        
-    def clean_filters(self, filters: Dict[str, Any]) -> Dict[str, Any]:
-        indexed_fields = {
-            'category', 'complexity', 'document_type', 'language', 
-            'sentiment', 'topic', 'entities', 'keywords'
-        }
-        cleaned = {}
-        for key, value in filters.items():
-            if key not in indexed_fields:
-                continue
-            if value is not None and value !="":
-                if isinstance(value, list):
-                    cleaned_list = [v for v in value if v is not None]
-                    if cleaned_list:  
-                        cleaned[key] = cleaned_list
-                else:
-                    cleaned[key] = value
-        return cleaned
     
     def search(
         self, 
@@ -108,7 +91,9 @@ Only include metadata fields that are clearly identifiable from the query. Use n
     ) -> List[SearchResult]:
         print(f"Processing query: '{query}'")
         
-        metadata, enhanced_query = self._extract_metadata_and_enhance_query(query)        
+        metadata, enhanced_query = self.extract_metadata_and_enhance_query(query)
+        print(f"Enhanced query: '{enhanced_query}'")
+        
         try:
             query_vector = self.gemini_client.generate_embedding(enhanced_query)
         except Exception as e:
@@ -116,10 +101,9 @@ Only include metadata fields that are clearly identifiable from the query. Use n
             return []
         
         if metadata:
-            cleaned_metadata = self.clean_filters(metadata)
-            if cleaned_metadata:
-                print(f"Trying search with filters: {cleaned_metadata}")
-                results = self.execute_search(collection_name, query_vector, cleaned_metadata, limit)
+            if metadata:
+                print(f"Trying search with filters: {metadata}")
+                results = self.execute_search(collection_name, query_vector, metadata, limit)
                 if results and any(result.score >= min_score for result in results):
                     return results
         
