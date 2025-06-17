@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from rag.services.conv_manager import ConversationManager,ConversationSession
+from rag.services.conv_manager import ConversationManager
 import os
 
 class SessionResponse(BaseModel):
@@ -13,10 +13,12 @@ class SessionResponse(BaseModel):
     
 session_router = APIRouter()
 
+conversation_manager = ConversationManager()
+
 @session_router.post("/sessions/create", response_model=SessionResponse)
 async def create_session():
     try:
-        session_data = ConversationManager.create_session()
+        session_data = conversation_manager.create_session()
         return SessionResponse(
             session_id=session_data["session_id"],
             messages=session_data["messages"],

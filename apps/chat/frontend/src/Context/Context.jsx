@@ -32,7 +32,6 @@ const generateNewChat = async () => {
   }
 };
 
-// Move session functions outside of component
 async function createSession() {
   const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -60,7 +59,6 @@ async function createSession() {
 async function handleRagQueryWithSession(userPrompt, existingSessionId = null) {
   let session_id = existingSessionId;
 
-  // Create a new session if one doesn't exist
   if (!session_id) {
     try {
       session_id = await createSession();
@@ -81,7 +79,7 @@ async function handleRagQueryWithSession(userPrompt, existingSessionId = null) {
 
   let botReply;
   const apiUrl = import.meta.env.VITE_API_URL;
-  console.log(apiUrl);
+  console.log("api", apiUrl);
 
   try {
     const response = await fetch(`${apiUrl}/rag/query`, {
