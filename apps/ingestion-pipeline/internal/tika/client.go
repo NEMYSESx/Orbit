@@ -46,12 +46,10 @@ func NewClient(cfg *config.TikaConfig) *Client {
 }
 
 func (c *Client) ExtractWithMetadata(ctx context.Context, file multipart.File, header *multipart.FileHeader) (*models.ExtractedContent, error) {
-	// Check if this is a JSON file
 	if header != nil && strings.ToLower(filepath.Ext(header.Filename)) == ".json" {
 		return c.extractJSONContent(ctx, file, header)
 	}
 
-	// Handle other file types with Tika
 	var lastErr error
 	for attempt := 0; attempt <= c.config.RetryAttempts; attempt++ {
 		if attempt > 0 {
@@ -81,26 +79,21 @@ func (c *Client) extractJSONContent(ctx context.Context, file multipart.File, he
 		return nil, fmt.Errorf("failed to read JSON file content: %w", err)
 	}
 
-	// Parse JSON content
 	var jsonData interface{}
 	if err := json.Unmarshal(fileContent, &jsonData); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON content: %w", err)
 	}
 
-	// Extract structured information from JSON
 	jsonMeta := c.analyzeJSON(jsonData)
 	
-	// Convert JSON to readable text
 	cleanText := c.jsonToText(jsonData, 0)
 	wordCount := c.cleaner.CountWords(cleanText)
 	checksum := generateChecksum(fileContent)
 
-	// Extract basic metadata
 	title := ""
 	author := ""
 	language := "json"
 	
-	// Try to extract title from common JSON fields
 	if obj, ok := jsonData.(map[string]interface{}); ok {
 		if titleVal, exists := obj["title"]; exists {
 			if titleStr, ok := titleVal.(string); ok {
@@ -120,12 +113,10 @@ func (c *Client) extractJSONContent(ctx context.Context, file multipart.File, he
 		filename = header.Filename
 		filepath = filename
 		if title == "" {
-			// Use filename without extension as title if no title found
 			title = strings.TrimSuffix(filename, ".json")
 		}
 	}
 
-	// Create metadata with JSON-specific information
 	metadata := map[string]interface{}{
 		"content-type":     "application/json",
 		"json-key-count":   jsonMeta.KeyCount,
@@ -143,7 +134,7 @@ func (c *Client) extractJSONContent(ctx context.Context, file multipart.File, he
 			Filepath:      filepath,
 			FileSize:      int64(len(fileContent)),
 			Author:        author,
-			CreationDate:  nil, // JSON files don't typically have creation dates in content
+			CreationDate:  nil, 
 			Language:      language,
 			ContentType:   "application/json",
 			Checksum:      checksum,
@@ -152,7 +143,7 @@ func (c *Client) extractJSONContent(ctx context.Context, file multipart.File, he
 		},
 		CleanText: cleanText,
 		WordCount: wordCount,
-		PageCount: 1, // JSON files are considered single "page"
+		PageCount: 1, 
 	}, nil
 }
 
@@ -177,14 +168,12 @@ func (c *Client) analyzeJSONRecursive(data interface{}, meta *JSONMetadata, dept
 		meta.DataTypes["object"]++
 		
 		if depth == 0 {
-			// Capture top-level keys
 			for key := range v {
 				meta.TopLevelKeys = append(meta.TopLevelKeys, key)
 				meta.KeyCount++
 			}
 		}
 
-		// Build structure map for top-level
 		if depth <= 2 {
 			structObj := make(map[string]interface{})
 			for key, value := range v {

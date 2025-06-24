@@ -5,21 +5,20 @@ import Card from "./Card";
 import { Context } from "../../Context/Context";
 
 const Main = () => {
-  const theme = localStorage.getItem("theme");
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isListening, setIsListening] = useState(false);
+  const [searchInLogs, setSearchInLogs] = useState(false);
+  const [resultCount, setResultCount] = useState(10);
+  const [isToggling, setIsToggling] = useState(false);
   const recognitionRef = useRef(null);
 
   useEffect(() => {
-    if (theme === "dark") {
+    if (isDarkMode) {
       document.documentElement.classList.add("dark-mode");
-      setIsDarkMode(true);
     } else {
       document.documentElement.classList.remove("dark-mode");
-      setIsDarkMode(false);
     }
 
-    // Initialize Speech Recognition
     if ("webkitSpeechRecognition" in window) {
       const SpeechRecognition = window.webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
@@ -41,7 +40,7 @@ const Main = () => {
         setIsListening(false);
       };
     }
-  }, []);
+  }, [isDarkMode]);
 
   const startListening = () => {
     if (recognitionRef.current) {
@@ -67,45 +66,101 @@ const Main = () => {
     allowSending,
     stopReply,
     stopIcon,
-    // suggestions,
   } = useContext(Context);
-
-  // const cardText = suggestions;
 
   const chatEndRef = useRef(null);
   const scrollToBottom = () =>
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+
   const toggleDarkMode = () => {
     setIsDarkMode((prevMode) => {
       const newMode = !prevMode;
       if (newMode) {
-        localStorage.setItem("theme", "dark");
         document.documentElement.classList.add("dark-mode");
       } else {
-        localStorage.setItem("theme", "light");
         document.documentElement.classList.remove("dark-mode");
       }
       return newMode;
     });
   };
 
+  const handleSend = () => {
+    if (input.trim() && allowSending) {
+      onSent(input, file, { searchInLogs, resultCount });
+      setFile(null);
+      scrollToBottom();
+    }
+  };
+
+  const toggleFluentBit = async () => {
+    if (isToggling) return;
+
+    const previousState = searchInLogs;
+    setIsToggling(true);
+
+    try {
+      setSearchInLogs(!searchInLogs);
+
+      const response = await fetch("http://localhost:8080/api/fluent/toggle", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          enabled: !previousState,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        setSearchInLogs(previousState);
+        console.error(
+          "Failed to toggle Fluent Bit:",
+          result.message || "Unknown error"
+        );
+      } else {
+        console.log("Fluent Bit toggled successfully:", result.message);
+      }
+    } catch (error) {
+      setSearchInLogs(previousState);
+      console.error("Error toggling Fluent Bit:", error);
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
+  const handleResultCountChange = (e) => {
+    const value = parseInt(e.target.value) || 1;
+    setResultCount(Math.max(1, Math.min(100, value)));
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
   return (
     <div className={`main`}>
       <div className="nav">
-        <p>Orbit</p>{" "}
+        <p>Orbit</p>
         <div className="nav_right">
-          {" "}
-          <div className="nav_right">
-            <img
-              className={isDarkMode ? "light_mode_icon" : "dark_mode_icon"}
-              src={isDarkMode ? assets.light_mode : assets.night_mode}
-              onClick={toggleDarkMode}
-              alt={isDarkMode ? "Light Mode" : "Dark Mode"}
-            />
-            <img src={assets.user_icon} alt="User" />
-          </div>
-        </div>{" "}
+          <img
+            className={isDarkMode ? "light_mode_icon" : "dark_mode_icon"}
+            src={isDarkMode ? assets.light_mode : assets.night_mode}
+            onClick={toggleDarkMode}
+            alt={isDarkMode ? "Light Mode" : "Dark Mode"}
+          />
+          <img src={assets.user_icon} alt="User" />
+        </div>
       </div>
+
       <div className="main_container">
         {!conversation.messages || conversation.messages.length === 0 ? (
           <>
@@ -115,11 +170,7 @@ const Main = () => {
               </p>
               <p className="greetMsg">How can I help you today?</p>
             </div>
-            <div className="cards">
-              {/* {cardText.map((text, i) => (
-                <Card key={i} cardText={text} index={i} />
-              ))} */}
-            </div>
+            <div className="cards">{/* Card components would go here */}</div>
           </>
         ) : (
           conversation.messages.map((message, index) => (
@@ -150,77 +201,138 @@ const Main = () => {
             </div>
           ))
         )}
+        <div ref={chatEndRef}></div>
       </div>
-      <div className={`main_bottom ${file && "main_bottom_with_file"}`}>
+
+      <div className={`main_bottom ${file ? "main_bottom_with_file" : ""}`}>
         <div className="search_box">
-          {file && (
-            <div className="file_container">
-              {file && <img className="new_file" src={assets.file} alt="" />}
-              {file && <p className="file_name">{file.name}</p>}
-              <img
-                src={assets.cross}
-                onClick={() => {
-                  setFile(null);
-                }}
-              />
+          {/* Search Options Header */}
+          <div className="search_header">
+            <div className="toggle_container">
+              <span className="toggle_label">Search in Logs</span>
+              <button
+                className={`toggle_switch ${searchInLogs ? "active" : ""} ${
+                  isToggling ? "loading" : ""
+                }`}
+                onClick={toggleFluentBit}
+                disabled={isToggling}
+                title={isToggling ? "Updating..." : "Toggle log search"}
+              >
+                <div className="toggle_slider"></div>
+              </button>
             </div>
-          )}
-          <div className="tempo">
-            <input
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && input.trim() && allowSending) {
-                  onSent(input, file);
-                  setFile(null);
-                  scrollToBottom();
-                }
-              }}
-              value={input}
-              type="text"
-              placeholder="Ask anything"
-            />
-            <div>
+            <div className="result_count_container">
+              <label className="input_label">No of logs</label>
               <input
-                type="file"
-                onChange={(e) => {
-                  setFile(e.target.files[0]);
-                }}
-                style={{ display: "none" }}
-                id="fileUpload"
-              />
-              <img
-                src={isListening ? assets.mic_active_icon : assets.mic_icon}
-                className="utility_icon"
-                alt="Mic"
-                onClick={isListening ? stopListening : startListening}
-              />
-              <label className="file_label" htmlFor="fileUpload">
-                <img
-                  className="file_icon utility_icon"
-                  src={assets.add_file}
-                  alt=""
-                />
-              </label>
-              <img
-                onClick={() => {
-                  if (stopIcon) {
-                    stopReply();
-                  } else if (input.trim() && allowSending) {
-                    onSent(input, file);
-                    setFile(null);
-                    scrollToBottom();
-                  }
-                }}
-                src={stopIcon ? assets.stop_button : assets.send_icon}
-                alt=""
-                className="utility_icon"
+                type="number"
+                className="result_count_input"
+                value={resultCount}
+                onChange={handleResultCountChange}
+                min="1"
+                max="100"
+                placeholder="10"
               />
             </div>
           </div>
+
+          {/* File Container */}
+          {file && (
+            <div className="file_container">
+              <img className="new_file" src={assets.file} alt="File" />
+              <p className="file_name">{file.name}</p>
+              <img
+                src={assets.cross}
+                onClick={() => setFile(null)}
+                alt="Remove file"
+                style={{ cursor: "pointer" }}
+              />
+            </div>
+          )}
+
+          {/* Main Input Row */}
+          <div className="input_row">
+            <div className="main_input_container">
+              <input
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                value={input}
+                type="text"
+                placeholder="Ask anything..."
+                className="main_text_input"
+                disabled={loading}
+              />
+            </div>
+
+            <div className="action_buttons">
+              <button
+                className={`icon_button mic_button ${
+                  isListening ? "listening" : ""
+                }`}
+                onClick={isListening ? stopListening : startListening}
+                title={isListening ? "Stop Listening" : "Voice Input"}
+                disabled={loading}
+              >
+                <img
+                  src={isListening ? assets.mic_active_icon : assets.mic_icon}
+                  className="utility_icon"
+                  alt="Microphone"
+                />
+              </button>
+
+              <input
+                type="file"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                style={{ display: "none" }}
+                id="fileUpload"
+                accept="*/*"
+              />
+              <label
+                className="icon_button file_button"
+                htmlFor="fileUpload"
+                title="Upload File"
+              >
+                <img
+                  className="file_icon utility_icon"
+                  src={assets.add_file}
+                  alt="Upload file"
+                />
+              </label>
+
+              <button
+                className="icon_button send_button primary"
+                onClick={() => {
+                  if (stopIcon) {
+                    stopReply();
+                  } else {
+                    handleSend();
+                  }
+                }}
+                title={stopIcon ? "Stop" : "Send Message"}
+                disabled={loading && !stopIcon}
+              >
+                <img
+                  src={stopIcon ? assets.stop_button : assets.send_icon}
+                  alt={stopIcon ? "Stop" : "Send"}
+                  className="utility_icon"
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Search Status */}
+          {(searchInLogs || resultCount !== 10) && (
+            <div className="search_status">
+              <div className="status_indicator"></div>
+              <span>
+                {searchInLogs ? `Searching in logs` : `Regular search`} with{" "}
+                {resultCount} result{resultCount !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
         </div>
       </div>
+
       <div className="transparent"></div>
-      <div ref={chatEndRef}></div>
     </div>
   );
 };

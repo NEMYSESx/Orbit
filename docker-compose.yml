@@ -151,8 +151,45 @@ services:
     networks:
       - chat-app-network
 
+  log-generator:
+    build:
+      context: ./apps/logs-producer
+      dockerfile: Dockerfile
+    container_name: log-generator
+    restart: unless-stopped
+    volumes:
+      - log_data:/app/synthetic_logs # This should match your Go code's output path
+    networks:
+      - chat-app-network
+    environment:
+      - LOG_OUTPUT_DIR=/app/synthetic_logs # M
+
+  fluent-bit:
+    image: fluent/fluent-bit:3.0
+    container_name: fluent-bit
+    ports:
+      - "2020:2020"
+    volumes:
+      - log_data:/fluent-bit/logs:ro
+      - ./apps/fluent-bit-config:/fluent-bit/etc:ro
+      - fluent_bit_db:/fluent-bit/db
+    environment:
+      - HOSTNAME=fluent-bit-container
+    depends_on:
+      - kafka
+      - log-generator
+    restart: unless-stopped
+    networks:
+      - chat-app-network
+    command:
+      ["/fluent-bit/bin/fluent-bit", "--config=/fluent-bit/etc/fluent-bit.conf"]
+
 volumes:
   redis_data:
+    driver: local
+  log_data:
+    driver: local
+  fluent_bit_db:
     driver: local
 
 networks:

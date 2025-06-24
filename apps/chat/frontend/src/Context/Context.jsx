@@ -65,8 +65,6 @@ async function handleRagQueryWithSession(userPrompt, existingSessionId = null) {
       console.log("New session created with ID:", session_id);
     } catch (error) {
       console.error("Failed to create session:", error);
-      // Optionally continue without session_id or return early
-      // return { error: "Failed to create session" };
     }
   }
 
@@ -312,7 +310,6 @@ export const ContextProvider = (props) => {
     } catch (error) {
       console.error("Error in onSent:", error);
 
-      // Handle error in UI
       setConversation((prev) => {
         const updatedMessages = [...(prev?.messages || [])];
         updatedMessages[updatedMessages.length - 1] = {

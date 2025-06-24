@@ -345,7 +345,6 @@ Answer:"""
         self.default_history_limit = limit
         print(f"Default conversation history limit set to: {limit}")
 
-        # Updated query method - Remove the problematic first query checks
     def query(
         self, 
         user_query: str,
@@ -382,7 +381,6 @@ Answer:"""
 
             print(f"Found {len(search_results)} potential contexts")
 
-            # Get session data once at the beginning
             get_session = self.conversation_manager.get_session(session_id)
             conversation_context = self.get_limited_conversation_context(get_session, history_limit) if get_session and get_session.get('messages') else ""
 
