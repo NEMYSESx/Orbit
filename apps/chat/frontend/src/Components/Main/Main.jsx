@@ -8,7 +8,6 @@ const Main = () => {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isListening, setIsListening] = useState(false);
   const [searchInLogs, setSearchInLogs] = useState(false);
-  const [resultCount, setResultCount] = useState(10);
   const [isToggling, setIsToggling] = useState(false);
   const recognitionRef = useRef(null);
 
@@ -86,7 +85,7 @@ const Main = () => {
 
   const handleSend = () => {
     if (input.trim() && allowSending) {
-      onSent(input, file, { searchInLogs, resultCount });
+      onSent(input, file, { searchInLogs });
       setFile(null);
       scrollToBottom();
     }
@@ -95,11 +94,11 @@ const Main = () => {
   const toggleFluentBit = async () => {
     if (isToggling) return;
 
-    const previousState = searchInLogs;
     setIsToggling(true);
+    const newState = !searchInLogs;
 
     try {
-      setSearchInLogs(!searchInLogs);
+      console.log(`Attempting to set Fluent Bit to: ${newState}`);
 
       const response = await fetch("http://localhost:8080/api/fluent/toggle", {
         method: "POST",
@@ -107,36 +106,36 @@ const Main = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          enabled: !previousState,
+          enabled: newState,
         }),
       });
 
+      console.log(`Response status: ${response.status}`);
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response
+          .json()
+          .catch(() => ({ detail: "Unknown error" }));
+        throw new Error(
+          `HTTP error! status: ${response.status} - ${errorData.detail}`
+        );
       }
 
       const result = await response.json();
+      console.log("API Response:", result);
 
-      if (!result.success) {
-        setSearchInLogs(previousState);
-        console.error(
-          "Failed to toggle Fluent Bit:",
-          result.message || "Unknown error"
-        );
+      if (result.success) {
+        setSearchInLogs(newState);
+        console.log(`Fluent Bit successfully set to: ${newState}`);
       } else {
-        console.log("Fluent Bit toggled successfully:", result.message);
+        throw new Error(result.message || "API returned success: false");
       }
     } catch (error) {
-      setSearchInLogs(previousState);
       console.error("Error toggling Fluent Bit:", error);
+      alert(`Failed to toggle log search: ${error.message}`);
     } finally {
       setIsToggling(false);
     }
-  };
-
-  const handleResultCountChange = (e) => {
-    const value = parseInt(e.target.value) || 1;
-    setResultCount(Math.max(1, Math.min(100, value)));
   };
 
   const handleKeyDown = (e) => {
@@ -193,9 +192,7 @@ const Main = () => {
                     )}
                   </div>
                 ) : (
-                  <>
-                    <p>{message.text}</p>
-                  </>
+                  <p>{message.text}</p>
                 )}
               </div>
             </div>
@@ -220,18 +217,6 @@ const Main = () => {
               >
                 <div className="toggle_slider"></div>
               </button>
-            </div>
-            <div className="result_count_container">
-              <label className="input_label">No of logs</label>
-              <input
-                type="number"
-                className="result_count_input"
-                value={resultCount}
-                onChange={handleResultCountChange}
-                min="1"
-                max="100"
-                placeholder="10"
-              />
             </div>
           </div>
 
@@ -320,13 +305,10 @@ const Main = () => {
           </div>
 
           {/* Search Status */}
-          {(searchInLogs || resultCount !== 10) && (
+          {searchInLogs && (
             <div className="search_status">
               <div className="status_indicator"></div>
-              <span>
-                {searchInLogs ? `Searching in logs` : `Regular search`} with{" "}
-                {resultCount} result{resultCount !== 1 ? "s" : ""}
-              </span>
+              <span>Searching in logs</span>
             </div>
           )}
         </div>
