@@ -9,7 +9,25 @@ const Main = () => {
   const [isListening, setIsListening] = useState(false);
   const [searchInLogs, setSearchInLogs] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
+  const [isIngesting, setIsIngesting] = useState(false);
   const recognitionRef = useRef(null);
+
+  const [file, setFile] = useState(null);
+  const {
+    onSent,
+    loading,
+    setInput,
+    input,
+    conversation,
+    allowSending,
+    stopReply,
+    stopIcon,
+  } = useContext(Context);
+
+  const chatEndRef = useRef(null);
+
+  const scrollToBottom = () =>
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
   useEffect(() => {
     if (isDarkMode) {
@@ -55,22 +73,6 @@ const Main = () => {
     }
   };
 
-  const [file, setFile] = useState(null);
-  const {
-    onSent,
-    loading,
-    setInput,
-    input,
-    conversation,
-    allowSending,
-    stopReply,
-    stopIcon,
-  } = useContext(Context);
-
-  const chatEndRef = useRef(null);
-  const scrollToBottom = () =>
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-
   const toggleDarkMode = () => {
     setIsDarkMode((prevMode) => {
       const newMode = !prevMode;
@@ -89,6 +91,25 @@ const Main = () => {
       setFile(null);
       scrollToBottom();
     }
+  };
+
+  const pollIngestionStatus = async () => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("http://localhost:8080/api/fluent/status");
+        const data = await res.json();
+
+        if (!data.ingesting) {
+          clearInterval(interval);
+          setIsIngesting(false);
+          console.log("✅ Ingestion completed");
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+        clearInterval(interval);
+        setIsIngesting(false);
+      }
+    }, 1500);
   };
 
   const toggleFluentBit = async () => {
@@ -126,6 +147,10 @@ const Main = () => {
 
       if (result.success) {
         setSearchInLogs(newState);
+        if (newState) {
+          setIsIngesting(true);
+          pollIngestionStatus();
+        }
         console.log(`Fluent Bit successfully set to: ${newState}`);
       } else {
         throw new Error(result.message || "API returned success: false");
@@ -147,6 +172,13 @@ const Main = () => {
 
   return (
     <div className={`main`}>
+      {isIngesting && (
+        <div className="ingestion_overlay">
+          <div className="spinner"></div>
+          <p>Ingesting logs... Please wait</p>
+        </div>
+      )}
+
       <div className="nav">
         <p>Orbit</p>
         <div className="nav_right">
@@ -169,7 +201,7 @@ const Main = () => {
               </p>
               <p className="greetMsg">How can I help you today?</p>
             </div>
-            <div className="cards">{/* Card components would go here */}</div>
+            <div className="cards">{/* <Card /> here if needed */}</div>
           </>
         ) : (
           conversation.messages.map((message, index) => (
@@ -201,9 +233,11 @@ const Main = () => {
         <div ref={chatEndRef}></div>
       </div>
 
-      <div className={`main_bottom ${file ? "main_bottom_with_file" : ""}`}>
+      <div
+        className={`main_bottom ${file ? "main_bottom_with_file" : ""}`}
+        style={{ marginLeft: "120px" }}
+      >
         <div className="search_box">
-          {/* Search Options Header */}
           <div className="search_header">
             <div className="toggle_container">
               <span className="toggle_label">Search in Logs</span>
@@ -220,7 +254,6 @@ const Main = () => {
             </div>
           </div>
 
-          {/* File Container */}
           {file && (
             <div className="file_container">
               <img className="new_file" src={assets.file} alt="File" />
@@ -234,7 +267,6 @@ const Main = () => {
             </div>
           )}
 
-          {/* Main Input Row */}
           <div className="input_row">
             <div className="main_input_container">
               <input
@@ -304,7 +336,6 @@ const Main = () => {
             </div>
           </div>
 
-          {/* Search Status */}
           {searchInLogs && (
             <div className="search_status">
               <div className="status_indicator"></div>

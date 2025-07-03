@@ -90,7 +90,7 @@ class ConversationManager:
             self.session_ttl,
             json.dumps(session_data)
         )
-        print(f"🆕 Created session: {session_id}")
+        print(f"Created session: {session_id}")
         return session_data
 
     def add_message(self, session_id: str, content_query: str ,content_answer: str, metadata: Optional[Dict[str, Any]] = None, summary: Optional[str] = None) -> Optional[Dict[str, Any]]:

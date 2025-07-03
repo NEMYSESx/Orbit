@@ -7,7 +7,7 @@ import os
 rag_router = APIRouter()
 
 rag_service = RAGService(
-    collection_name="documents",
+    collection_names=["documents", "logs"], 
     redis_host=os.getenv('REDIS_HOST', 'redis'),
     redis_port=int(os.getenv('REDIS_PORT', 6379)),
     redis_password=os.getenv('REDIS_PASSWORD')
@@ -18,7 +18,7 @@ class QueryRequest(BaseModel):
     session_id: Optional[str] = None
     limit: Optional[int] = 5
     score_threshold: Optional[float] = 0.6
-    conversation_history_limit: Optional[int] = None  
+    conversation_history_limit: Optional[int] = None
 
 @rag_router.post("/rag/query", response_model=RAGResponse)
 async def query_rag_service(request: QueryRequest):
