@@ -22,7 +22,7 @@ const Main = () => {
     allowSending,
     stopReply,
     stopIcon,
-    isThinking, // <--- Add this
+    isThinking, 
   } = useContext(Context);
 
   const chatEndRef = useRef(null);
@@ -211,7 +211,7 @@ const Main = () => {
                 {message.type === "bot" ? (
                   <div className={`result_data`}>
                     <div className="hello">
-                      {/* Show loader only if isThinking and this is the last message */}
+                      
                       {index === conversation.messages.length - 1 && isThinking ? (
                         <div className="loader">
                           <span></span>

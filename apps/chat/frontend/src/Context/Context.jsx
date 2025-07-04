@@ -206,7 +206,7 @@ export const ContextProvider = (props) => {
 
     setAllowSending(false);
     setLoading(true);
-    setIsThinking(true); // <--- Show loader
+    setIsThinking(true);
     stopReplyRef.current = false;
     setStopIcon(true);
     setShowResult(true);
@@ -225,7 +225,7 @@ export const ContextProvider = (props) => {
     try {
       const result = await handleRagQueryWithSession(userPrompt, currentSessionId);
 
-      setIsThinking(false); // <--- Hide loader, start typing effect
+      setIsThinking(false); 
 
       if (result.session_id) {
         setCurrentSessionId(result.session_id);
@@ -240,7 +240,7 @@ export const ContextProvider = (props) => {
         setConversation((prev) => {
           const updatedMessages = [...prev.messages];
           const currentText = plainResponse.slice(0, currentIndex);
-          console.log("Typing:", currentText); // <--- Add this
+
           updatedMessages[updatedMessages.length - 1] = {
             type: "bot",
             text: currentText,
@@ -256,7 +256,6 @@ export const ContextProvider = (props) => {
         if (currentIndex <= plainResponse.length && !stopReplyRef.current) {
           setTimeout(typeBotResponse, 10);
         } else {
-          // After typing, show the full formatted markdown
           setConversation((prev) => {
             const updatedMessages = [...(prev?.messages || [])];
             updatedMessages[updatedMessages.length - 1] = {
