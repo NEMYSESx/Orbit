@@ -10,7 +10,10 @@ const Main = () => {
   const [searchInLogs, setSearchInLogs] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
   const [isIngesting, setIsIngesting] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speakingIndex, setSpeakingIndex] = useState(null);
   const recognitionRef = useRef(null);
+  const synthRef = useRef(window.speechSynthesis);
 
   const [file, setFile] = useState(null);
   const {
@@ -170,6 +173,34 @@ const Main = () => {
     }
   };
 
+  // Function to get the latest bot message
+  const getLatestBotMessage = () => {
+    if (!conversation.messages) return "";
+    const botMessages = conversation.messages.filter(
+      (msg) => msg.type === "bot"
+    );
+    if (botMessages.length === 0) return "";
+    return botMessages[botMessages.length - 1].text.replace(/<[^>]+>/g, ""); // Remove HTML tags
+  };
+
+  // Speak handler for a specific message
+  const handleSpeak = (text, idx) => {
+    if (!text) return;
+    if (synthRef.current.speaking) {
+      synthRef.current.cancel();
+    }
+    const utter = new window.SpeechSynthesisUtterance(text);
+    utter.onend = () => setSpeakingIndex(null);
+    synthRef.current.speak(utter);
+    setSpeakingIndex(idx);
+  };
+
+  // Stop handler for a specific message
+  const handleStopSpeak = () => {
+    synthRef.current.cancel();
+    setSpeakingIndex(null);
+  };
+
   return (
     <div className={`main`}>
       {isIngesting && (
@@ -220,6 +251,35 @@ const Main = () => {
                         <p
                           dangerouslySetInnerHTML={{ __html: message.text }}
                         ></p>
+                        {/* Speak/Stop button for each answer */}
+                        <button
+                          className={`icon_button speak_stop_button`}
+                          onClick={
+                            speakingIndex === index
+                              ? handleStopSpeak
+                              : () =>
+                                  handleSpeak(
+                                    message.text.replace(/<[^>]+>/g, ""),
+                                    index
+                                  )
+                          }
+                          disabled={loading || !message.text}
+                          title={
+                            speakingIndex === index
+                              ? "Stop speaking"
+                              : "Speak this bot reply"
+                          }
+                          style={{
+                            marginLeft: "8px",
+                            marginTop: "8px",
+                            background:
+                              speakingIndex === index ? "#e74c3c" : "#3498db",
+                            color: "#fff",
+                            border: "none",
+                          }}
+                        >
+                          {speakingIndex === index ? "Stop" : "Speak"}
+                        </button>
                       </div>
                     )}
                   </div>
