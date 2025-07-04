@@ -22,6 +22,7 @@ const Main = () => {
     allowSending,
     stopReply,
     stopIcon,
+    isThinking, // <--- Add this
   } = useContext(Context);
 
   const chatEndRef = useRef(null);
@@ -209,19 +210,18 @@ const Main = () => {
               <div className={`result_title ${message.type}`}>
                 {message.type === "bot" ? (
                   <div className={`result_data`}>
-                    {index === conversation.messages.length - 1 && loading ? (
-                      <div className="loader">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                      </div>
-                    ) : (
-                      <div className="hello">
-                        <p
-                          dangerouslySetInnerHTML={{ __html: message.text }}
-                        ></p>
-                      </div>
-                    )}
+                    <div className="hello">
+                      {/* Show loader only if isThinking and this is the last message */}
+                      {index === conversation.messages.length - 1 && isThinking ? (
+                        <div className="loader">
+                          <span></span>
+                          <span></span>
+                          <span></span>
+                        </div>
+                      ) : (
+                        <p dangerouslySetInnerHTML={{ __html: message.text }}></p>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <p>{message.text}</p>

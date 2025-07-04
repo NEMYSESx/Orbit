@@ -125,6 +125,7 @@ export const ContextProvider = (props) => {
   const [stopIcon, setStopIcon] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
+  const [isThinking, setIsThinking] = useState(false);
 
   const stopReplyRef = useRef(false);
 
@@ -170,16 +171,10 @@ export const ContextProvider = (props) => {
     const getCurrentConversation = async () => {
       try {
         stopReplyRef.current = true;
-        const response = await fetch(
-          `${backendUrl}/conversation/active/${activeConversationId}`
-        );
+        const response = await fetch(`${backendUrl}/conversation/active/${activeConversationId}`);
         if (response.ok) {
           const result = await response.json();
-          if (
-            result &&
-            conversation &&
-            result.sessionId !== conversation.sessionId
-          ) {
+          if (result && conversation && result.sessionId !== conversation.sessionId) {
             setConversation(result);
           }
         }
@@ -211,6 +206,7 @@ export const ContextProvider = (props) => {
 
     setAllowSending(false);
     setLoading(true);
+    setIsThinking(true); // <--- Show loader
     stopReplyRef.current = false;
     setStopIcon(true);
     setShowResult(true);
@@ -227,31 +223,27 @@ export const ContextProvider = (props) => {
     console.log(currentSessionId);
 
     try {
-      const result = await handleRagQueryWithSession(
-        userPrompt,
-        currentSessionId
-      );
+      const result = await handleRagQueryWithSession(userPrompt, currentSessionId);
+
+      setIsThinking(false); // <--- Hide loader, start typing effect
 
       if (result.session_id) {
         setCurrentSessionId(result.session_id);
       }
 
       const botReply = result.response;
-      const formattedResponse = marked(
-        botReply?.response || "Something went wrong"
-      );
-
-      await sleep(1000);
+      const plainResponse = botReply?.response || "Something went wrong";
 
       let currentIndex = 0;
 
       const typeBotResponse = () => {
         setConversation((prev) => {
-          const updatedMessages = [...(prev?.messages || [])];
-          const currentText = formattedResponse.slice(0, currentIndex);
+          const updatedMessages = [...prev.messages];
+          const currentText = plainResponse.slice(0, currentIndex);
+          console.log("Typing:", currentText); // <--- Add this
           updatedMessages[updatedMessages.length - 1] = {
             type: "bot",
-            text: marked(currentText),
+            text: currentText,
           };
           return {
             ...prev,
@@ -261,9 +253,21 @@ export const ContextProvider = (props) => {
 
         currentIndex++;
 
-        if (currentIndex <= formattedResponse.length && !stopReplyRef.current) {
+        if (currentIndex <= plainResponse.length && !stopReplyRef.current) {
           setTimeout(typeBotResponse, 10);
         } else {
+          // After typing, show the full formatted markdown
+          setConversation((prev) => {
+            const updatedMessages = [...(prev?.messages || [])];
+            updatedMessages[updatedMessages.length - 1] = {
+              type: "bot",
+              text: marked(plainResponse),
+            };
+            return {
+              ...prev,
+              messages: updatedMessages,
+            };
+          });
           if (activeConversationId) {
             saveToBackend();
           }
@@ -277,20 +281,17 @@ export const ContextProvider = (props) => {
 
       async function saveToBackend() {
         try {
-          const response = await fetch(
-            `${backendUrl}/conversation/${activeConversationId}`,
-            {
-              method: "POST",
-              headers: {
-                "Content-type": "application/json",
-              },
-              body: JSON.stringify({
-                userMsg: userMessage,
-                botMsg: { type: "bot", text: formattedResponse },
-                prompt: userPrompt,
-              }),
-            }
-          );
+          const response = await fetch(`${backendUrl}/conversation/${activeConversationId}`, {
+            method: "POST",
+            headers: {
+              "Content-type": "application/json",
+            },
+            body: JSON.stringify({
+              userMsg: userMessage,
+              botMsg: { type: "bot", text: marked(plainResponse) },
+              prompt: userPrompt,
+            }),
+          });
           if (response.ok) {
             const result = await response.json();
             console.log("savedddddd", result);
@@ -369,6 +370,7 @@ export const ContextProvider = (props) => {
         setUpdateSidebar,
         updateSidebar2,
         setUpdateSidebar2,
+        isThinking,
       }}
     >
       {props.children}
