@@ -169,12 +169,15 @@ services:
     container_name: fluent-bit
     ports:
       - "2020:2020"
+      - "9880:9880"
     volumes:
       - log_data:/fluent-bit/logs:ro
       - ./apps/fluent-bit-config:/fluent-bit/etc:ro
       - fluent_bit_db:/fluent-bit/db
+      - ./apps/fluent-bit-config/scripts:/scripts:ro
     environment:
       - HOSTNAME=fluent-bit-container
+      - time=$(date -Iseconds)
     depends_on:
       - kafka
       - log-generator

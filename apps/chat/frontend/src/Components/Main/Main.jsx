@@ -10,10 +10,28 @@ const Main = () => {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isListening, setIsListening] = useState(false);
   const [searchInLogs, setSearchInLogs] = useState(false);
-  const [resultCount, setResultCount] = useState(10);
   const [isToggling, setIsToggling] = useState(false);
+  const [isIngesting, setIsIngesting] = useState(false);
   const recognitionRef = useRef(null);
   const [lastUserInput, setLastUserInput] = useState("");
+
+  const [file, setFile] = useState(null);
+  const {
+    onSent,
+    loading,
+    setInput,
+    input,
+    conversation,
+    allowSending,
+    stopReply,
+    stopIcon,
+    isThinking, 
+  } = useContext(Context);
+
+  const chatEndRef = useRef(null);
+
+  const scrollToBottom = () =>
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
   useEffect(() => {
     if (isDarkMode) {
@@ -59,6 +77,7 @@ const Main = () => {
     }
   };
 
+<<<<<<< HEAD
   const [file, setFile] = useState(null);
   const {
     onSent,
@@ -77,6 +96,8 @@ const Main = () => {
 
   const scrollToBottom = () => chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
+=======
+>>>>>>> a64e029bf3e68c598c78d6cafe2b93ab270993de
   const toggleDarkMode = () => {
     setIsDarkMode((prevMode) => {
       const newMode = !prevMode;
@@ -91,20 +112,39 @@ const Main = () => {
 
   const handleSend = () => {
     if (input.trim() && allowSending) {
-      onSent(input, file, { searchInLogs, resultCount });
+      onSent(input, file, { searchInLogs });
       setFile(null);
       scrollToBottom();
     }
   };
 
+  const pollIngestionStatus = async () => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("http://localhost:8080/api/fluent/status");
+        const data = await res.json();
+
+        if (!data.ingesting) {
+          clearInterval(interval);
+          setIsIngesting(false);
+          console.log("✅ Ingestion completed");
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+        clearInterval(interval);
+        setIsIngesting(false);
+      }
+    }, 1500);
+  };
+
   const toggleFluentBit = async () => {
     if (isToggling) return;
 
-    const previousState = searchInLogs;
     setIsToggling(true);
+    const newState = !searchInLogs;
 
     try {
-      setSearchInLogs(!searchInLogs);
+      console.log(`Attempting to set Fluent Bit to: ${newState}`);
 
       const response = await fetch("http://localhost:8080/api/fluent/toggle", {
         method: "POST",
@@ -112,36 +152,40 @@ const Main = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          enabled: !previousState,
+          enabled: newState,
         }),
       });
 
+      console.log(`Response status: ${response.status}`);
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response
+          .json()
+          .catch(() => ({ detail: "Unknown error" }));
+        throw new Error(
+          `HTTP error! status: ${response.status} - ${errorData.detail}`
+        );
       }
 
       const result = await response.json();
+      console.log("API Response:", result);
 
-      if (!result.success) {
-        setSearchInLogs(previousState);
-        console.error(
-          "Failed to toggle Fluent Bit:",
-          result.message || "Unknown error"
-        );
+      if (result.success) {
+        setSearchInLogs(newState);
+        if (newState) {
+          setIsIngesting(true);
+          pollIngestionStatus();
+        }
+        console.log(`Fluent Bit successfully set to: ${newState}`);
       } else {
-        console.log("Fluent Bit toggled successfully:", result.message);
+        throw new Error(result.message || "API returned success: false");
       }
     } catch (error) {
-      setSearchInLogs(previousState);
       console.error("Error toggling Fluent Bit:", error);
+      alert(`Failed to toggle log search: ${error.message}`);
     } finally {
       setIsToggling(false);
     }
-  };
-
-  const handleResultCountChange = (e) => {
-    const value = parseInt(e.target.value) || 1;
-    setResultCount(Math.max(1, Math.min(100, value)));
   };
 
   const handleKeyDown = (e) => {
@@ -153,6 +197,13 @@ const Main = () => {
 
   return (
     <div className={`main`}>
+      {isIngesting && (
+        <div className="ingestion_overlay">
+          <div className="spinner"></div>
+          <p>Ingesting logs... Please wait</p>
+        </div>
+      )}
+
       <div className="nav">
         <p>Orbit</p>
         <div className="nav_right">
@@ -175,11 +226,15 @@ const Main = () => {
               </p>
               <p className="greetMsg">How can I help you today?</p>
             </div>
+<<<<<<< HEAD
             <div className="cards">
               {[1, 2, 3].map((item, index) => (
                 <Card key={index} cardText={`Try log query ${index + 1}`} index={index + 1} />
               ))}
             </div>
+=======
+            <div className="cards">{/* <Card /> here if needed */}</div>
+>>>>>>> a64e029bf3e68c598c78d6cafe2b93ab270993de
           </>
         ) : (
           conversation.messages.map((message, index) => (
@@ -187,6 +242,7 @@ const Main = () => {
               <div className={`result_title ${message.type}`}>
                 {message.type === "bot" ? (
                   <div className={`result_data`}>
+<<<<<<< HEAD
                     {index === conversation.messages.length - 1 && loading ? (
                       <div className="loader">
                         <span></span>
@@ -222,6 +278,23 @@ const Main = () => {
                   <div className="user_msg">
                     <p>{message.text}</p>
                   </div>
+=======
+                    <div className="hello">
+                      
+                      {index === conversation.messages.length - 1 && isThinking ? (
+                        <div className="loader">
+                          <span></span>
+                          <span></span>
+                          <span></span>
+                        </div>
+                      ) : (
+                        <p dangerouslySetInnerHTML={{ __html: message.text }}></p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p>{message.text}</p>
+>>>>>>> a64e029bf3e68c598c78d6cafe2b93ab270993de
                 )}
               </div>
             </div>
@@ -230,9 +303,11 @@ const Main = () => {
         <div ref={chatEndRef}></div>
       </div>
 
-      <div className={`main_bottom ${file ? "main_bottom_with_file" : ""}`}>
+      <div
+        className={`main_bottom ${file ? "main_bottom_with_file" : ""}`}
+        style={{ marginLeft: "120px" }}
+      >
         <div className="search_box">
-          {/* Search Options Header */}
           <div className="search_header">
             <div className="toggle_container">
               <span className="toggle_label">Search in Logs</span>
@@ -245,21 +320,8 @@ const Main = () => {
                 <div className="toggle_slider"></div>
               </button>
             </div>
-            <div className="result_count_container">
-              <label className="input_label">No of logs</label>
-              <input
-                type="number"
-                className="result_count_input"
-                value={resultCount}
-                onChange={handleResultCountChange}
-                min="1"
-                max="100"
-                placeholder="10"
-              />
-            </div>
           </div>
 
-          {/* File Container */}
           {file && (
             <div className="file_container">
               <img className="new_file" src={assets.file} alt="File" />
@@ -273,7 +335,6 @@ const Main = () => {
             </div>
           )}
 
-          {/* Main Input Row */}
           <div className="input_row">
             <div className="main_input_container">
               <input
@@ -343,14 +404,10 @@ const Main = () => {
             </div>
           </div>
 
-          {/* Search Status */}
-          {(searchInLogs || resultCount !== 10) && (
+          {searchInLogs && (
             <div className="search_status">
               <div className="status_indicator"></div>
-              <span>
-                {searchInLogs ? `Searching in logs` : `Regular search`} with{" "}
-                {resultCount} result{resultCount !== 1 ? "s" : ""}
-              </span>
+              <span>Searching in logs</span>
             </div>
           )}
         </div>
