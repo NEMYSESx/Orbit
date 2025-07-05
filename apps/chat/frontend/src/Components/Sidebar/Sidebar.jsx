@@ -3,7 +3,7 @@ import "./Sidebar.css";
 import { assets } from "../../assets/assets";
 import { Context } from "../../Context/Context";
 
-const Sidebar = () => {
+const Sidebar = ({ sidebarExpanded, setSidebarExpanded }) => {
   const backend = import.meta.env.VITE_BACKEND_URL;
   const {
     setUpdateSidebar2,
@@ -13,7 +13,6 @@ const Sidebar = () => {
     createNewChat,
     stopReply,
   } = useContext(Context);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [conversations, setConversations] = useState([]);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
 
@@ -63,22 +62,8 @@ const Sidebar = () => {
       )}
 
       <div className="top">
-        <div className="flex items-center justify-between mb-4">
-          <svg
-            onClick={handleMenuIconClicked}
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-            className="menu-icon cursor-pointer"
-          >
-            <path
-              fillRule="evenodd"
-              clipRule="evenodd"
-              d="M8.85719 3H15.1428C16.2266 2.99999 17.1007 2.99998 17.8086 3.05782C18.5375 3.11737 19.1777 3.24318 19.77 3.54497C20.7108 4.02433 21.4757 4.78924 21.955 5.73005C22.2568 6.32234 22.3826 6.96253 22.4422 7.69138C22.5 8.39925 22.5 9.27339 22.5 10.3572V13.6428C22.5 14.7266 22.5 15.6008 22.4422 16.3086C22.3826 17.0375 22.2568 17.6777 21.955 18.27C21.4757 19.2108 20.7108 19.9757 19.77 20.455C19.1777 20.7568 18.5375 20.8826 17.8086 20.9422C17.1008 21 16.2266 21 15.1428 21H8.85717C7.77339 21 6.89925 21 6.19138 20.9422C5.46253 20.8826 4.82234 20.7568 4.23005 20.455C3.28924 19.9757 2.52433 19.2108 2.04497 18.27C1.74318 17.6777 1.61737 17.0375 1.55782 16.3086C1.49998 15.6007 1.49999 14.7266 1.5 13.6428V10.3572C1.49999 9.27341 1.49998 8.39926 1.55782 7.69138C1.61737 6.96253 1.74318 6.32234 2.04497 5.73005C2.52433 4.78924 3.28924 4.02433 4.23005 3.54497C4.82234 3.24318 5.46253 3.11737 6.19138 3.05782C6.89926 2.99998 7.77341 2.99999 8.85719 3Z"
-              fill="currentColor"
-            />
-          </svg>
+        <div >
+          <img className="menu-icon cursor-pointer" src={assets.expand} alt="" onClick={handleMenuIconClicked}/>
         </div>
 
         <div

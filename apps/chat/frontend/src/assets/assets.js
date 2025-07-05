@@ -21,6 +21,7 @@ import file from './file.png'
 import cross from './close.png'
 import deleteBtn from './delete.png'
 import mic_active_icon from './microphone.png'
+import expand from './scalability.png'
 export const assets = {
     history_icon,
     menu_icon,
@@ -44,5 +45,6 @@ export const assets = {
     file,
     cross,
     deleteBtn,
-    mic_active_icon
+    mic_active_icon,
+    expand
 }

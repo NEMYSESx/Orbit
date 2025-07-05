@@ -2,6 +2,8 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import "./Main.css";
 import { assets } from "../../assets/assets";
 import Card from "./Card";
+
+import { Link, useNavigate } from "react-router";
 import { Context } from "../../Context/Context";
 
 const Main = () => {
@@ -13,6 +15,7 @@ const Main = () => {
   const recognitionRef = useRef(null);
 
   const [file, setFile] = useState(null);
+  const navigate = useNavigate()
   const {
     onSent,
     loading,
@@ -172,6 +175,7 @@ const Main = () => {
   };
 
   return (
+    
     <div className={`main`}>
       {isIngesting && (
         <div className="ingestion_overlay">
@@ -189,7 +193,6 @@ const Main = () => {
             onClick={toggleDarkMode}
             alt={isDarkMode ? "Light Mode" : "Dark Mode"}
           />
-          <img src={assets.user_icon} alt="User" />
         </div>
       </div>
 
@@ -202,7 +205,7 @@ const Main = () => {
               </p>
               <p className="greetMsg">How can I help you today?</p>
             </div>
-            <div className="cards">{/* <Card /> here if needed */}</div>
+            {/* <div className="cards"><Card /> here if needed</div> */}
           </>
         ) : (
           conversation.messages.map((message, index) => (
@@ -235,7 +238,6 @@ const Main = () => {
 
       <div
         className={`main_bottom ${file ? "main_bottom_with_file" : ""}`}
-        style={{ marginLeft: "120px" }}
       >
         <div className="search_box">
           <div className="search_header">
@@ -296,24 +298,16 @@ const Main = () => {
                 />
               </button>
 
-              <input
-                type="file"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                style={{ display: "none" }}
-                id="fileUpload"
-                accept="*/*"
-              />
-              <label
-                className="icon_button file_button"
-                htmlFor="fileUpload"
-                title="Upload File"
+              
+              <Link
+                className="icon_button file_button" to={"/upload"} title="upload file"
               >
                 <img
                   className="file_icon utility_icon"
                   src={assets.add_file}
                   alt="Upload file"
                 />
-              </label>
+              </Link>
 
               <button
                 className="icon_button send_button primary"
