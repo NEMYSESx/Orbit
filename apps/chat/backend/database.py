@@ -6,7 +6,9 @@ from sqlalchemy.orm import sessionmaker
 
 load_dotenv()
 
-DATABASE_URL = "sqlite:///./chat.db"
+DATA_DIR = "/rag/data"
+os.makedirs(DATA_DIR, exist_ok=True)
+DATABASE_URL = f"sqlite:///{DATA_DIR}/chatbot.db"
 
 engine = create_engine(
     DATABASE_URL, connect_args={"check_same_thread": False}

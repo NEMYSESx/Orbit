@@ -13,17 +13,17 @@ type Config struct {
 }
 
 type KafkaConfig struct {
-	BootstrapServers string `json:"bootstrap_servers"`
-	GroupID          string `json:"group_id"`
-	Topic            string `json:"topic"`
-	AutoOffsetReset  string `json:"auto_offset_reset"`
+	BootstrapServers string   `json:"bootstrap_servers"`
+	GroupID          string   `json:"group_id"`
+	Topic            []string `json:"topic"`
+	AutoOffsetReset  string   `json:"auto_offset_reset"`
 }
 
 type QdrantConfig struct {
-	URL        string `json:"url"`
-	APIKey     string `json:"api_key"`
-	Collection string `json:"collection"`
-	VectorSize int    `json:"vector_size"`
+	URL        string            `json:"url"`
+	APIKey     string            `json:"api_key"`
+	Collections map[string]string `json:"collections"` // Map topic to collection name
+	VectorSize int               `json:"vector_size"`
 }
 
 type GeminiConfig struct {
@@ -51,8 +51,8 @@ func LoadConfig(configPath string) (*Config, error) {
 	if config.Kafka.GroupID == "" {
 		config.Kafka.GroupID = "embedding-pipeline-group"
 	}
-	if config.Kafka.Topic == "" {
-		config.Kafka.Topic = "document"
+	if len(config.Kafka.Topic) == 0 {
+		config.Kafka.Topic = []string{"documents"}
 	}
 	if config.Kafka.AutoOffsetReset == "" {
 		config.Kafka.AutoOffsetReset = "earliest"
@@ -61,9 +61,14 @@ func LoadConfig(configPath string) (*Config, error) {
 	if config.Qdrant.URL == "" {
 		config.Qdrant.URL = "http://localhost:6333"
 	}
-	if config.Qdrant.Collection == "" {
-		config.Qdrant.Collection = "documents"
+	
+	if config.Qdrant.Collections == nil {
+		config.Qdrant.Collections = make(map[string]string)
+		for _, topic := range config.Kafka.Topic {
+			config.Qdrant.Collections[topic] = topic 
+		}
 	}
+	
 	if config.Qdrant.VectorSize == 0 {
 		config.Qdrant.VectorSize = 768
 	}
@@ -84,12 +89,15 @@ func GetConfig() *Config {
 		Kafka: KafkaConfig{
 			BootstrapServers: "kafka:29092",
 			GroupID:          "embedding-pipeline-group",
-			Topic:            "document",
+			Topic:            []string{"documents", "logs"},
 			AutoOffsetReset:  "earliest",
 		},
 		Qdrant: QdrantConfig{
-			URL:        "http://localhost:6333",
-			Collection: "documents",
+			URL: "http://localhost:6333",
+			Collections: map[string]string{
+				"documents": "documents",
+				"logs":      "logs",
+			},
 			VectorSize: 768,
 		},
 		Gemini: GeminiConfig{

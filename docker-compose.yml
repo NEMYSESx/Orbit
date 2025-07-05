@@ -1,11 +1,30 @@
 version: "3.8"
 
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - chat-app-network
+
   tika:
     image: apache/tika:latest
     container_name: tika
     ports:
       - "9998:9998"
+    networks:
+      - chat-app-network
 
   kafka:
     image: confluentinc/cp-kafka:7.9.0
@@ -26,6 +45,8 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_HEAP_OPTS: "-Xmx1G -Xms1G"
+    networks:
+      - chat-app-network
 
   ingestion-pipeline:
     build:
@@ -39,6 +60,8 @@ services:
       - kafka
       - tika
     restart: unless-stopped
+    networks:
+      - chat-app-network
 
   embedding-pipeline:
     build:
@@ -51,6 +74,8 @@ services:
     depends_on:
       - kafka
       - ingestion-pipeline
+    networks:
+      - chat-app-network
     restart: unless-stopped
 
   rag-api:
@@ -62,7 +87,10 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - embedding-pipeline
+      embedding-pipeline:
+        condition: service_started
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     environment:
       - QDRANT_URL=https://bad7e720-f630-4fe4-a36d-9e7f85ae7503.europe-west3-0.gcp.cloud.qdrant.io:6333
@@ -72,8 +100,13 @@ services:
       - EMBEDDING_MODEL=models/text-embedding-004
       - EMBEDDING_DIMENSIONALITY=768
       - LLM_MODEL=gemini-2.0-flash
-      - GEMINI_API_KEY=AIzaSyAMDcKJ5t_c1YMYdk7TqPiuwuYRGjhXxNI
+      - GEMINI_API_KEY=AIzaSyByCUsepBOtNC4xt1T30KBZKDrDScQArHo
       - CONNECTION_TIMEOUT=15
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    networks:
+      - chat-app-network
 
   chat-backend:
     build:
@@ -84,11 +117,20 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - rag-api
+      redis:
+        condition: service_healthy
+      rag-api:
+        condition: service_started
     environment:
       - INGESTION_URL=http://ingestion-pipeline:3001
       - FRONTEND_URL=http://chat-frontend:5173
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - RAG_API_URL=http://rag-api:8000
     restart: unless-stopped
+    networks:
+      - chat-app-network
 
   chat-frontend:
     build:
@@ -106,7 +148,50 @@ services:
       - VITE_BACKEND_URL=http://localhost:8080
       - VITE_API_URL=http://localhost:8000
     restart: unless-stopped
+    networks:
+      - chat-app-network
+
+  log-generator:
+    build:
+      context: ./apps/logs-producer
+      dockerfile: Dockerfile
+    container_name: log-generator
+    restart: unless-stopped
+    volumes:
+      - log_data:/app/synthetic_logs # This should match your Go code's output path
+    networks:
+      - chat-app-network
+    environment:
+      - LOG_OUTPUT_DIR=/app/synthetic_logs # M
+
+  fluent-bit:
+    image: fluent/fluent-bit:3.0
+    container_name: fluent-bit
+    ports:
+      - "2020:2020"
+    volumes:
+      - log_data:/fluent-bit/logs:ro
+      - ./apps/fluent-bit-config:/fluent-bit/etc:ro
+      - fluent_bit_db:/fluent-bit/db
+    environment:
+      - HOSTNAME=fluent-bit-container
+    depends_on:
+      - kafka
+      - log-generator
+    restart: unless-stopped
+    networks:
+      - chat-app-network
+    command:
+      ["/fluent-bit/bin/fluent-bit", "--config=/fluent-bit/etc/fluent-bit.conf"]
+
+volumes:
+  redis_data:
+    driver: local
+  log_data:
+    driver: local
+  fluent_bit_db:
+    driver: local
 
 networks:
-  default:
-    name: chat-app-network
+  chat-app-network:
+    driver: bridge

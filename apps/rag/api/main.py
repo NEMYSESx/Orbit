@@ -5,6 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from rag.api.routers.rag_router import rag_router
+from rag.api.routers.session_router import session_router
 
 
 
@@ -23,6 +24,7 @@ app.add_middleware(
 )
 
 app.include_router(rag_router)
+app.include_router(session_router)
 
 @app.get("/")
 async def root():
