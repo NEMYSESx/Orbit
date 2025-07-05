@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { useNavigate } from "react-router-dom"; 
 import "./Upload.css";
 
 const DocumentUploadProcessor = () => {
@@ -7,6 +8,7 @@ const DocumentUploadProcessor = () => {
   const [status, setStatus] = useState({ message: "", type: "", show: false });
   const [fileInfo, setFileInfo] = useState(null);
   const fileInputRef = useRef(null);
+  const navigate = useNavigate(); 
 
   const allowedTypes = [
     ".pdf",
@@ -137,6 +139,12 @@ const DocumentUploadProcessor = () => {
 
   return (
     <div className="upload-container">
+      <button
+        className="back-home-btn"
+        onClick={() => navigate("/")}
+      >
+      Home
+      </button>
       <div className="upload-content">
         <div className="upload-card">
           <h1 className="upload-title"> Upload Your Document</h1>

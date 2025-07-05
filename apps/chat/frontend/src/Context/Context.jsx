@@ -141,7 +141,7 @@ export const ContextProvider = (props) => {
       if (newChat) {
         setConversation(newChat);
         setActiveConversationId(newChat.sessionId);
-        setCurrentSessionId(null); // Reset session ID for new chat
+        setCurrentSessionId(null);
       }
     }
   };

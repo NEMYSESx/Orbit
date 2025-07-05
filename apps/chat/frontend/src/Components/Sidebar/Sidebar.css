@@ -59,7 +59,10 @@
 .sidebar img {
   width: 20px;
   transition: transform 0.3s ease, filter 0.3s ease;
-  filter: brightness(0.8);
+}
+
+.dark-mode .cursor-pointer{
+  filter: invert(100%);
 }
 
 .sidebar .menu-icon {
