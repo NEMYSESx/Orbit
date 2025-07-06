@@ -51,8 +51,6 @@
   --accent-blue: #60a5fa;
 }
 
-
-
 body {
   background-color: var(--background-color);
   color: var(--text-color);
@@ -95,32 +93,27 @@ body {
   color: var(--nav-text-color);
   z-index: 10000;
   margin-bottom: 40px;
-  background: rgba(245, 245, 255, 0.85); 
+  background: rgba(245, 245, 255, 0.85);
 
-  box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
   transition: background 0.3s, box-shadow 0.3s, border-bottom 0.3s;
   user-select: none;
 }
 
-/* On hover, make nav stand out more */
 .main .nav:hover {
   background: rgba(230, 240, 255, 0.98);
-  box-shadow: 0 4px 24px rgba(59,130,246,0.10);
-
+  box-shadow: 0 4px 24px rgba(59, 130, 246, 0.1);
 }
 
-/* Dark mode nav */
 .dark-mode .main .nav {
   background: #121212;
   color: var(--nav-text-color);
 
-  box-shadow: 0 2px 16px rgba(0,0,0,0.18);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.18);
 }
 
-/* Dark mode nav hover */
 .dark-mode .main .nav:hover {
   box-shadow: 0 4px 24px rgba(128, 135, 144, 0.1);
-
 }
 
 .light_mode_icon {
@@ -168,8 +161,7 @@ body {
   margin: auto;
   display: flex;
   flex-direction: column;
-  padding-bottom: 140px; /* Added padding to prevent content from being hidden behind the fixed bottom bar */
-
+  padding-bottom: 140px;
 }
 
 .main .greet {
@@ -281,7 +273,7 @@ body {
 
 .main_bottom {
   position: fixed;
-  left: 250px; /* matches sidebar expanded width */
+  left: 250px;
   right: 20px;
   bottom: 0;
   height: 120px;
@@ -290,36 +282,31 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 0 32px 0 0; /* Add right padding for scrollbar (try 16px or 32px) */
+  padding: 0 32px 0 0;
   border-top: 1.5px solid var(--border-light);
   transition: left 0.3s, width 0.3s, height 0.3s;
   padding-right: var(--scrollbar-width);
 }
 
-/* Sidebar collapsed */
 .app-container.sidebar-collapsed .main_bottom {
   left: 60px;
 }
 
-/* Responsive for mobile */
 @media (max-width: 900px) {
   .main_bottom {
     left: 0;
     right: 0;
     height: 100px;
     min-height: 80px;
-    padding: 0 16px 0 10px; /* keep some right padding */
+    padding: 0 16px 0 10px;
   }
 }
 
-/* Center and size the search_box */
 .search_box {
   width: 100%;
   max-width: 941px;
   margin: 0 auto;
 }
-
-
 
 .search_box {
   display: flex;
@@ -332,9 +319,8 @@ body {
   transition: all 0.4s ease;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   width: 100%;
-  max-width: 941px; /* Add max-width */
+  max-width: 941px;
   margin: 0 auto;
-  /* transform: translateX(-50px); */
 }
 
 .search_box:hover {
@@ -347,7 +333,6 @@ body {
   box-shadow: 0 8px 32px rgba(96, 165, 250, 0.15);
 }
 
-/* Search Header */
 .search_header {
   display: flex;
   align-items: center;
@@ -434,7 +419,6 @@ body {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-/* File Container */
 .file_container {
   display: inline-flex;
   padding: 8px 12px;
@@ -463,17 +447,16 @@ body {
   cursor: pointer;
 }
 
-/* Main Input Row */
 .input_row {
   display: flex;
   align-items: center;
   gap: 12px;
-  justify-content: center; /* Add this to center the content */
+  justify-content: center;
 }
 
 .main_input_container {
   flex: 1;
-  margin: 0 auto; /* Center the input container */
+  margin: 0 auto;
 }
 
 .main_text_input {
@@ -500,7 +483,6 @@ body {
   user-select: none;
 }
 
-/* Action Buttons */
 .action_buttons {
   display: flex;
   align-items: center;
@@ -564,7 +546,6 @@ body {
   filter: brightness(1) invert(1);
 }
 
-/* Search Status */
 .search_status {
   display: flex;
   align-items: center;
@@ -601,7 +582,6 @@ body {
   }
 }
 
-/* Keep all your existing styles below */
 .main .bottom_info {
   font-size: 13px;
   margin: 15px auto;

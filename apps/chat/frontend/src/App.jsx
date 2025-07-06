@@ -4,7 +4,7 @@ import Sidebar from "./Components/Sidebar/Sidebar";
 import Main from "./Components/Main/Main";
 import Upload from "./Components/Main/Upload";
 import "./App.css";
-import { Context, ContextProvider } from "./Context/Context";
+import { ContextProvider } from "./Context/Context";
 
 const App = () => {
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
