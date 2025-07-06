@@ -2,13 +2,11 @@
   display: flex;
   min-height: 100vh;
   width: 100%;
-  /* background-color: #ffffff; */
   position: relative;
 }
 
 .sidebar-container {
   width: 250px;
-  /* background-color: #121212; */
   height: 100vh;
   position: fixed;
   left: 0;
@@ -16,7 +14,7 @@
   z-index: 100;
   transition: width 0.3s;
 }
-.dark-mode .sidebar-container{
+.dark-mode .sidebar-container {
   background-color: #121212;
 }
 

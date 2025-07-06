@@ -5,14 +5,7 @@ import { Context } from "../../Context/Context";
 
 const Sidebar = ({ sidebarExpanded, setSidebarExpanded }) => {
   const backend = import.meta.env.VITE_BACKEND_URL;
-  const {
-    setUpdateSidebar2,
-    updateSidebar,
-    setActiveConversationId,
-    activeConversationId,
-    createNewChat,
-    stopReply,
-  } = useContext(Context);
+  const { setUpdateSidebar2, updateSidebar, setActiveConversationId, activeConversationId, createNewChat, stopReply } = useContext(Context);
   const [conversations, setConversations] = useState([]);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
 
@@ -62,16 +55,13 @@ const Sidebar = ({ sidebarExpanded, setSidebarExpanded }) => {
       )}
 
       <div className="top">
-        <div >
-          <img className="menu-icon cursor-pointer" src={assets.expand} alt="" onClick={handleMenuIconClicked}/>
+        <div>
+          <img className="menu-icon cursor-pointer" src={assets.expand} alt="" onClick={handleMenuIconClicked} />
         </div>
 
-        <div
-          className={`${sidebarExpanded ? "newchat_expanded" : ""} new_chat`}
-          onClick={createNewChat}
-        >
-          {!sidebarExpanded && <img src={assets.plus_icon} alt="New Chat" />}
-          {sidebarExpanded && <p>New Chat</p>}
+        <div className={`${sidebarExpanded ? "newchat_expanded" : ""} new_chat`} onClick={createNewChat}>
+          <img src={assets.plus_icon} alt="New Chat" />
+          <p className="new-chat-text">New Chat</p>
         </div>
 
         {sidebarExpanded && (
@@ -81,9 +71,7 @@ const Sidebar = ({ sidebarExpanded, setSidebarExpanded }) => {
               conversations.map((conv) => (
                 <div
                   key={conv.sessionId}
-                  className={`chat-title recent_entry ${
-                    activeConversationId === conv.sessionId ? "active" : ""
-                  }`}
+                  className={`chat-title recent_entry ${activeConversationId === conv.sessionId ? "active" : ""}`}
                   onClick={() => {
                     activeConversationId !== conv.sessionId && stopReply();
                     setActiveConversationId(conv.sessionId);
@@ -91,11 +79,7 @@ const Sidebar = ({ sidebarExpanded, setSidebarExpanded }) => {
                 >
                   <p className="chatName">
                     <span>
-                      {conv.title
-                        ? activeConversationId === conv.sessionId
-                          ? conv.title.slice(0, 30)
-                          : conv.title.slice(0, 18)
-                        : "New Chat"}
+                      {conv.title ? (activeConversationId === conv.sessionId ? conv.title.slice(0, 30) : conv.title.slice(0, 18)) : "New Chat"}
                       ...
                     </span>
                     {activeConversationId === conv.sessionId && (

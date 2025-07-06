@@ -19,15 +19,7 @@
 .upload-title {
   font-size: 2.75rem;
   font-weight: 800;
-  background: linear-gradient(
-    270deg,
-    #faccdd,
-    #c1f5f0,
-    #fde68a,
-    #c7d2fe,
-    #fbcfe8,
-    #a7f3d0
-  );
+  background: linear-gradient(270deg, #faccdd, #c1f5f0, #fde68a, #c7d2fe, #fbcfe8, #a7f3d0);
   background-size: 1200% 1200%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -103,18 +95,7 @@
 }
 
 .upload-button {
-  background: linear-gradient(
-    270deg,
-    #f6d365,
-    #fda085,
-    #ffecd2,
-    #a1c4fd,
-    #c2e9fb,
-    #e0c3fc,
-    #8fd3f4,
-    #d4fc79,
-    #96e6a1
-  );
+  background: linear-gradient(270deg, #f6d365, #fda085, #ffecd2, #a1c4fd, #c2e9fb, #e0c3fc, #8fd3f4, #d4fc79, #96e6a1);
   background-size: 1800% 1800%;
   animation: pastelFlow 15s ease infinite;
 
@@ -164,7 +145,6 @@
   border: 1px solid #ef4444;
 }
 
-/* Common button base styles */
 .back-home-btn {
   position: absolute;
   top: 24px;
@@ -201,16 +181,14 @@
   outline: none;
 }
 
-/* Light mode variables */
 :root {
   --back-btn-gradient: linear-gradient(90deg, #e0c3fc 0%, #f5f7fa 100%);
   --back-btn-gradient-hover: linear-gradient(90deg, #f5f7fa 0%, #e0c3fc 100%);
   --back-btn-text: #333;
-  --back-btn-shadow: rgba(160, 120, 255, 0.10);
+  --back-btn-shadow: rgba(160, 120, 255, 0.1);
   --back-btn-shadow-hover: rgba(160, 120, 255, 0.18);
 }
 
-/* Dark mode overrides */
 .dark-mode {
   --back-btn-gradient: linear-gradient(90deg, #232526 0%, #414345 100%);
   --back-btn-gradient-hover: linear-gradient(90deg, #414345 0%, #232526 100%);
