@@ -71,16 +71,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Python tests in rag/test
-        working-directory: ./rag/test
+      - name: Run Python tests in test
+        working-directory: ./apps/test
         run: |
           python3 -m unittest discover -s . -p "*.py"
-
-      - name: Run Python tests in tests
-        working-directory: ./tests
-        run: |
-          pip install pytest
-          pytest -v
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
