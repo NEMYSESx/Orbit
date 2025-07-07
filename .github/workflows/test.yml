@@ -53,6 +53,13 @@ jobs:
           go mod verify
           go test -v ./...
 
+      - name: Run Tests for logs-producer
+        working-directory: ./apps/logs-producer
+        run: |
+          go mod tidy
+          go mod verify
+          go test -v ./...
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -65,10 +72,9 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run Python tests in rag/test
-        working-directory: ./apps/rag/test
+        working-directory: ./rag/test
         run: |
-          pip install pytest
-          pytest -v
+          python3 -m unittest discover -s . -p "*.py"
 
       - name: Run Python tests in tests
         working-directory: ./tests
