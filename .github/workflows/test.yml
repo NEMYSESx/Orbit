@@ -21,10 +21,22 @@ jobs:
         with:
           go-version: '1.23'
 
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        if: always()
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('apps/**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
       - name: Verify Go Installation
         run: |
           which go
           go version
+
 
       - name: Enable Go Modules
         run: echo "GO111MODULE=on" >> $GITHUB_ENV
