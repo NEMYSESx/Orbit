@@ -2,19 +2,20 @@
   display: flex;
   min-height: 100vh;
   width: 100%;
-  background-color: #ffffff;
   position: relative;
 }
 
 .sidebar-container {
   width: 250px;
-  border-right: 1px solid #e5e5e5;
-  background-color: #ffffff;
   height: 100vh;
   position: fixed;
   left: 0;
   top: 0;
   z-index: 100;
+  transition: width 0.3s;
+}
+.dark-mode .sidebar-container {
+  background-color: #121212;
 }
 
 .main-content {
@@ -25,4 +26,20 @@
   overflow-y: auto;
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-container.sidebar-expanded .main-content {
+  margin-left: 250px;
+  transition: margin-left 0.3s;
+}
+
+.app-container.sidebar-collapsed .main-content {
+  margin-left: 60px;
+  transition: margin-left 0.3s;
+}
+
+.app-container.sidebar-collapsed .sidebar-container {
+  width: 60px;
 }

@@ -1,18 +1,20 @@
-import React from "react";
+import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Sidebar from "./Components/Sidebar/Sidebar";
 import Main from "./Components/Main/Main";
 import Upload from "./Components/Main/Upload";
 import "./App.css";
-import { Context, ContextProvider } from "./Context/Context";
+import { ContextProvider } from "./Context/Context";
 
 const App = () => {
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
+
   return (
     <ContextProvider>
       <Router>
-        <div className="app-container">
+        <div className={`app-container ${sidebarExpanded ? "sidebar-expanded" : "sidebar-collapsed"}`}>
           <aside className="sidebar-container">
-            <Sidebar />
+            <Sidebar sidebarExpanded={sidebarExpanded} setSidebarExpanded={setSidebarExpanded} />
           </aside>
           <main className="main-content">
             <Routes>

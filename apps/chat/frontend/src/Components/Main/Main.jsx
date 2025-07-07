@@ -2,36 +2,31 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import "./Main.css";
 import { assets } from "../../assets/assets";
 import Card from "./Card";
+
+import { Link, useNavigate } from "react-router";
 import { Context } from "../../Context/Context";
 import { Copy, RefreshCw } from "lucide-react";
 
 
 const Main = () => {
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const stored = localStorage.getItem("theme");
+    if (stored) return stored === "dark";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
+
   const [isListening, setIsListening] = useState(false);
   const [searchInLogs, setSearchInLogs] = useState(false);
+  const [resultCount, setResultCount] = useState(10);
   const [isToggling, setIsToggling] = useState(false);
-  const [isIngesting, setIsIngesting] = useState(false);
   const recognitionRef = useRef(null);
   const [lastUserInput, setLastUserInput] = useState("");
 
   const [file, setFile] = useState(null);
-  const {
-    onSent,
-    loading,
-    setInput,
-    input,
-    conversation,
-    allowSending,
-    stopReply,
-    stopIcon,
-    isThinking, 
-  } = useContext(Context);
+  const { onSent, loading, setInput, input, conversation, allowSending, stopReply, stopIcon, regenerateResponse, isThinking} = useContext(Context);
 
   const chatEndRef = useRef(null);
-
-  const scrollToBottom = () =>
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = () => chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
   useEffect(() => {
     if (isDarkMode) {
@@ -77,34 +72,16 @@ const Main = () => {
     }
   };
 
-<<<<<<< HEAD
-  const [file, setFile] = useState(null);
-  const {
-    onSent,
-    loading,
-    setInput,
-    input,
-    conversation,
-    allowSending,
-    stopReply,
-    stopIcon,
-    suggestions,
-    regenerateResponse,
-  } = useContext(Context);
-
-  const chatEndRef = useRef(null);
-
-  const scrollToBottom = () => chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-
-=======
->>>>>>> a64e029bf3e68c598c78d6cafe2b93ab270993de
+  
   const toggleDarkMode = () => {
     setIsDarkMode((prevMode) => {
       const newMode = !prevMode;
       if (newMode) {
         document.documentElement.classList.add("dark-mode");
+        localStorage.setItem("theme", "dark");
       } else {
         document.documentElement.classList.remove("dark-mode");
+        localStorage.setItem("theme", "light");
       }
       return newMode;
     });
@@ -112,39 +89,20 @@ const Main = () => {
 
   const handleSend = () => {
     if (input.trim() && allowSending) {
-      onSent(input, file, { searchInLogs });
+      onSent(input, file, { searchInLogs, resultCount });
       setFile(null);
       scrollToBottom();
     }
   };
 
-  const pollIngestionStatus = async () => {
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch("http://localhost:8080/api/fluent/status");
-        const data = await res.json();
-
-        if (!data.ingesting) {
-          clearInterval(interval);
-          setIsIngesting(false);
-          console.log("✅ Ingestion completed");
-        }
-      } catch (err) {
-        console.error("Polling error:", err);
-        clearInterval(interval);
-        setIsIngesting(false);
-      }
-    }, 1500);
-  };
-
   const toggleFluentBit = async () => {
     if (isToggling) return;
 
+    const previousState = searchInLogs;
     setIsToggling(true);
-    const newState = !searchInLogs;
 
     try {
-      console.log(`Attempting to set Fluent Bit to: ${newState}`);
+      setSearchInLogs(!searchInLogs);
 
       const response = await fetch("http://localhost:8080/api/fluent/toggle", {
         method: "POST",
@@ -152,40 +110,36 @@ const Main = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          enabled: newState,
+          enabled: !previousState,
         }),
       });
 
-      console.log(`Response status: ${response.status}`);
-
       if (!response.ok) {
-        const errorData = await response
-          .json()
-          .catch(() => ({ detail: "Unknown error" }));
-        throw new Error(
-          `HTTP error! status: ${response.status} - ${errorData.detail}`
-        );
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const result = await response.json();
-      console.log("API Response:", result);
 
-      if (result.success) {
-        setSearchInLogs(newState);
-        if (newState) {
-          setIsIngesting(true);
-          pollIngestionStatus();
-        }
-        console.log(`Fluent Bit successfully set to: ${newState}`);
+      if (!result.success) {
+        setSearchInLogs(previousState);
+        console.error(
+          "Failed to toggle Fluent Bit:",
+          result.message || "Unknown error"
+        );
       } else {
-        throw new Error(result.message || "API returned success: false");
+        console.log("Fluent Bit toggled successfully:", result.message);
       }
     } catch (error) {
+      setSearchInLogs(previousState);
       console.error("Error toggling Fluent Bit:", error);
-      alert(`Failed to toggle log search: ${error.message}`);
     } finally {
       setIsToggling(false);
     }
+  };
+
+  const handleResultCountChange = (e) => {
+    const value = parseInt(e.target.value) || 1;
+    setResultCount(Math.max(1, Math.min(100, value)));
   };
 
   const handleKeyDown = (e) => {
@@ -197,13 +151,6 @@ const Main = () => {
 
   return (
     <div className={`main`}>
-      {isIngesting && (
-        <div className="ingestion_overlay">
-          <div className="spinner"></div>
-          <p>Ingesting logs... Please wait</p>
-        </div>
-      )}
-
       <div className="nav">
         <p>Orbit</p>
         <div className="nav_right">
@@ -213,7 +160,6 @@ const Main = () => {
             onClick={toggleDarkMode}
             alt={isDarkMode ? "Light Mode" : "Dark Mode"}
           />
-          <img src={assets.user_icon} alt="User" />
         </div>
       </div>
 
@@ -226,15 +172,7 @@ const Main = () => {
               </p>
               <p className="greetMsg">How can I help you today?</p>
             </div>
-<<<<<<< HEAD
-            <div className="cards">
-              {[1, 2, 3].map((item, index) => (
-                <Card key={index} cardText={`Try log query ${index + 1}`} index={index + 1} />
-              ))}
-            </div>
-=======
-            <div className="cards">{/* <Card /> here if needed */}</div>
->>>>>>> a64e029bf3e68c598c78d6cafe2b93ab270993de
+            {/* <div className="cards"><Card /> here if needed</div> */}
           </>
         ) : (
           conversation.messages.map((message, index) => (
@@ -242,7 +180,6 @@ const Main = () => {
               <div className={`result_title ${message.type}`}>
                 {message.type === "bot" ? (
                   <div className={`result_data`}>
-<<<<<<< HEAD
                     {index === conversation.messages.length - 1 && loading ? (
                       <div className="loader">
                         <span></span>
@@ -278,23 +215,6 @@ const Main = () => {
                   <div className="user_msg">
                     <p>{message.text}</p>
                   </div>
-=======
-                    <div className="hello">
-                      
-                      {index === conversation.messages.length - 1 && isThinking ? (
-                        <div className="loader">
-                          <span></span>
-                          <span></span>
-                          <span></span>
-                        </div>
-                      ) : (
-                        <p dangerouslySetInnerHTML={{ __html: message.text }}></p>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <p>{message.text}</p>
->>>>>>> a64e029bf3e68c598c78d6cafe2b93ab270993de
                 )}
               </div>
             </div>
@@ -303,11 +223,9 @@ const Main = () => {
         <div ref={chatEndRef}></div>
       </div>
 
-      <div
-        className={`main_bottom ${file ? "main_bottom_with_file" : ""}`}
-        style={{ marginLeft: "120px" }}
-      >
+      <div className={`main_bottom ${file ? "main_bottom_with_file" : ""}`}>
         <div className="search_box">
+          {/* Search Options Header */}
           <div className="search_header">
             <div className="toggle_container">
               <span className="toggle_label">Search in Logs</span>
@@ -320,21 +238,30 @@ const Main = () => {
                 <div className="toggle_slider"></div>
               </button>
             </div>
+            <div className="result_count_container">
+              <label className="input_label">No of logs</label>
+              <input
+                type="number"
+                className="result_count_input"
+                value={resultCount}
+                onChange={handleResultCountChange}
+                min="1"
+                max="100"
+                placeholder="10"
+              />
+            </div>
           </div>
 
+          {/* File Container */}
           {file && (
             <div className="file_container">
               <img className="new_file" src={assets.file} alt="File" />
               <p className="file_name">{file.name}</p>
-              <img
-                src={assets.cross}
-                onClick={() => setFile(null)}
-                alt="Remove file"
-                style={{ cursor: "pointer" }}
-              />
+              <img src={assets.cross} onClick={() => setFile(null)} alt="Remove file" style={{ cursor: "pointer" }} />
             </div>
           )}
 
+          {/* Main Input Row */}
           <div className="input_row">
             <div className="main_input_container">
               <input
@@ -350,38 +277,17 @@ const Main = () => {
 
             <div className="action_buttons">
               <button
-                className={`icon_button mic_button ${
-                  isListening ? "listening" : ""
-                }`}
+                className={`icon_button mic_button ${isListening ? "listening" : ""}`}
                 onClick={isListening ? stopListening : startListening}
                 title={isListening ? "Stop Listening" : "Voice Input"}
                 disabled={loading}
               >
-                <img
-                  src={isListening ? assets.mic_active_icon : assets.mic_icon}
-                  className="utility_icon"
-                  alt="Microphone"
-                />
+                <img src={isListening ? assets.mic_active_icon : assets.mic_icon} className="utility_icon" alt="Microphone" />
               </button>
 
-              <input
-                type="file"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                style={{ display: "none" }}
-                id="fileUpload"
-                accept="*/*"
-              />
-              <label
-                className="icon_button file_button"
-                htmlFor="fileUpload"
-                title="Upload File"
-              >
-                <img
-                  className="file_icon utility_icon"
-                  src={assets.add_file}
-                  alt="Upload file"
-                />
-              </label>
+              <Link className="icon_button file_button" to={"/upload"} title="upload file">
+                <img className="file_icon utility_icon" src={assets.add_file} alt="Upload file" />
+              </Link>
 
               <button
                 className="icon_button send_button primary"
@@ -395,19 +301,19 @@ const Main = () => {
                 title={stopIcon ? "Stop" : "Send Message"}
                 disabled={loading && !stopIcon}
               >
-                <img
-                  src={stopIcon ? assets.stop_button : assets.send_icon}
-                  alt={stopIcon ? "Stop" : "Send"}
-                  className="utility_icon"
-                />
+                <img src={stopIcon ? assets.stop_button : assets.send_icon} alt={stopIcon ? "Stop" : "Send"} className="utility_icon" />
               </button>
             </div>
           </div>
 
-          {searchInLogs && (
+          {/* Search Status */}
+          {(searchInLogs || resultCount !== 10) && (
             <div className="search_status">
               <div className="status_indicator"></div>
-              <span>Searching in logs</span>
+              <span>
+                {searchInLogs ? `Searching in logs` : `Regular search`} with{" "}
+                {resultCount} result{resultCount !== 1 ? "s" : ""}
+              </span>
             </div>
           )}
         </div>

@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import "./Upload.css";
 
 const DocumentUploadProcessor = () => {
@@ -7,16 +8,9 @@ const DocumentUploadProcessor = () => {
   const [status, setStatus] = useState({ message: "", type: "", show: false });
   const [fileInfo, setFileInfo] = useState(null);
   const fileInputRef = useRef(null);
+  const navigate = useNavigate();
 
-  const allowedTypes = [
-    ".pdf",
-    ".doc",
-    ".docx",
-    ".txt",
-    ".rtf",
-    ".odt",
-    ".json",
-  ];
+  const allowedTypes = [".pdf", ".doc", ".docx", ".txt", ".rtf", ".odt", ".json"];
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return "0 Bytes";
@@ -64,63 +58,40 @@ const DocumentUploadProcessor = () => {
     const fileExtension = "." + file.name.split(".").pop().toLowerCase();
 
     if (!allowedTypes.includes(fileExtension)) {
-      showStatus(
-        `❌ Unsupported file type: ${fileExtension}. Please upload: ${allowedTypes.join(
-          ", "
-        )}`,
-        "error"
-      );
+      showStatus(`❌ Unsupported file type: ${fileExtension}. Please upload: ${allowedTypes.join(", ")}`, "error");
       return;
     }
 
-    showStatus(
-      "🔄 Processing document... This may take a few moments",
-      "processing"
-    );
+    showStatus("🔄 Processing document... This may take a few moments", "processing");
     setIsProcessing(true);
 
     const formData = new FormData();
     formData.append("file", file);
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/upload/upload`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/upload/upload`, {
+        method: "POST",
+        body: formData,
+      });
 
       const result = await response.json();
 
       if (response.ok && result.status === "success") {
-        showStatus(
-          "✅ Document processed successfully! Ready for search.",
-          "success"
-        );
+        showStatus("✅ Document processed successfully! Ready for search.", "success");
         setFileInfo({
           filename: result.filename || file.name,
           file_size_bytes: result.file_size_bytes || file.size,
           status: result.status,
-          chunks_created:
-            result.chunks_created || Math.floor(Math.random() * 20) + 5,
-          processing_time_seconds:
-            result.processing_time_seconds ||
-            (Math.random() * 3 + 1).toFixed(1),
+          chunks_created: result.chunks_created || Math.floor(Math.random() * 20) + 5,
+          processing_time_seconds: result.processing_time_seconds || (Math.random() * 3 + 1).toFixed(1),
           document_id: result.document_id || `doc_${Date.now()}`,
         });
       } else {
-        showStatus(
-          `❌ Processing failed: ${result.message || result.error}`,
-          "error"
-        );
+        showStatus(`❌ Processing failed: ${result.message || result.error}`, "error");
       }
     } catch {
       setTimeout(() => {
-        showStatus(
-          "✅ Document processed successfully! Ready for search.",
-          "success"
-        );
+        showStatus("✅ Document processed successfully! Ready for search.", "success");
         setFileInfo({
           filename: file.name,
           file_size_bytes: file.size,
@@ -137,38 +108,22 @@ const DocumentUploadProcessor = () => {
 
   return (
     <div className="upload-container">
+      <button className="back-home-btn" onClick={() => navigate("/")}>
+        Home
+      </button>
       <div className="upload-content">
         <div className="upload-card">
           <h1 className="upload-title"> Upload Your Document</h1>
-          <p className="upload-description">
-            Got a file? Toss it in — we’ll handle the heavy lifting and get it
-            search-ready in seconds
-          </p>
+          <p className="upload-description">Got a file? Toss it in — we’ll handle the heavy lifting and get it search-ready in seconds</p>
 
-          <div
-            className={`drop-zone ${isDragOver ? "drag-over" : ""}`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={triggerFileInput}
-          >
+          <div className={`drop-zone ${isDragOver ? "drag-over" : ""}`} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} onClick={triggerFileInput}>
             <div className="drop-zone-icon">📎</div>
             <div className="drop-zone-text">Drop your document here</div>
             <div className="drop-zone-subtext">or click to browse files</div>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileInputChange}
-              accept=".pdf,.doc,.docx,.txt,.rtf,.odt"
-              className="hidden-input"
-            />
+            <input type="file" ref={fileInputRef} onChange={handleFileInputChange} accept=".pdf,.doc,.docx,.txt,.rtf,.odt" className="hidden-input" />
           </div>
 
-          <button
-            className={`upload-button ${isProcessing ? "processing" : ""}`}
-            onClick={triggerFileInput}
-            disabled={isProcessing}
-          >
+          <button className={`upload-button ${isProcessing ? "processing" : ""}`} onClick={triggerFileInput} disabled={isProcessing}>
             {isProcessing ? (
               <>
                 <div className="spinner"></div>
@@ -180,15 +135,10 @@ const DocumentUploadProcessor = () => {
           </button>
 
           <div className="supported-formats">
-            <strong>Supported formats:</strong> PDF, Word (.doc, .docx), Text
-            (.txt), RTF, ODT
+            <strong>Supported formats:</strong> PDF, Word (.doc, .docx), Text (.txt), RTF, ODT
           </div>
 
-          {status.show && (
-            <div className={`status-message ${status.type}`}>
-              {status.message}
-            </div>
-          )}
+          {status.show && <div className={`status-message ${status.type}`}>{status.message}</div>}
 
           {fileInfo && (
             <div className="file-info">
@@ -204,8 +154,7 @@ const DocumentUploadProcessor = () => {
                   <span>Chunks Created:</span> {fileInfo.chunks_created}
                 </p>
                 <p>
-                  <span>Processing Time:</span>{" "}
-                  {fileInfo.processing_time_seconds}s
+                  <span>Processing Time:</span> {fileInfo.processing_time_seconds}s
                 </p>
                 <p>
                   <span>Document ID:</span> {fileInfo.document_id}
