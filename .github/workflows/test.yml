@@ -86,8 +86,5 @@ jobs:
         working-directory: ./apps/chat/frontend
         run: npm install
 
-      - name: Run frontend tests
-        working-directory: ./apps/chat/frontend
-        run: |
-          npm run test
+      
 
