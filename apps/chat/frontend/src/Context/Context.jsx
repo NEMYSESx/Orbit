@@ -399,7 +399,6 @@ export const ContextProvider = (props) => {
         regenerateResponse,
 =======
         isThinking,
->>>>>>> a64e029bf3e68c598c78d6cafe2b93ab270993de
       }}
     >
       {props.children}
