@@ -3,6 +3,8 @@ import { marked } from "marked";
 
 export const Context = createContext();
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
 const generateNewChat = async () => {
@@ -139,7 +141,7 @@ export const ContextProvider = (props) => {
       if (newChat) {
         setConversation(newChat);
         setActiveConversationId(newChat.sessionId);
-        setCurrentSessionId(null);
+        setCurrentSessionId(null); // Reset session ID for new chat
       }
     }
   };
@@ -241,7 +243,7 @@ export const ContextProvider = (props) => {
     try {
       const result = await handleRagQueryWithSession(userPrompt, currentSessionId);
 
-      setIsThinking(false);
+      setIsThinking(false); 
 
       if (result.session_id) {
         setCurrentSessionId(result.session_id);
@@ -395,9 +397,7 @@ export const ContextProvider = (props) => {
         setUpdateSidebar,
         updateSidebar2,
         setUpdateSidebar2,
-<<<<<<< HEAD
         regenerateResponse,
-=======
         isThinking,
       }}
     >
