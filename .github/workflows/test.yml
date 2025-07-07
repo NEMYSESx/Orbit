@@ -27,7 +27,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum', '**/go.mod') }}
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum', 'apps/**/go.mod') }}
           restore-keys: |
             ${{ runner.os }}-go-
 
@@ -79,7 +79,7 @@ jobs:
       - name: Install Node modules
         working-directory: ./apps/chat/frontend
         run: npm install
-        
+
       - name: Install frontend dependencies
         working-directory: ./apps/chat/frontend
         run: npm install
@@ -89,8 +89,3 @@ jobs:
         run: |
           npm run test
 
-
-
-
-
-      
