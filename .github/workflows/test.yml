@@ -21,16 +21,6 @@ jobs:
         with:
           go-version: '1.23'
 
-      - name: Cache Go modules
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum', 'apps/**/go.mod') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
       - name: Verify Go Installation
         run: |
           which go
