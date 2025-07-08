@@ -95,6 +95,26 @@ const Main = () => {
     }
   };
 
+  const pollIngestionStatus = async () => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("http://localhost:8080/api/fluent/status");
+        const data = await res.json();
+
+        if (!data.ingesting) {
+          clearInterval(interval);
+          setIsIngesting(false);
+          console.log("✅ Ingestion completed");
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+        clearInterval(interval);
+        setIsIngesting(false);
+      }
+    }, 1500);
+  };
+
+
   const toggleFluentBit = async () => {
     if (isToggling) return;
 
@@ -137,10 +157,10 @@ const Main = () => {
     }
   };
 
-  const handleResultCountChange = (e) => {
-    const value = parseInt(e.target.value) || 1;
-    setResultCount(Math.max(1, Math.min(100, value)));
-  };
+  // const handleResultCountChange = (e) => {
+  //   const value = parseInt(e.target.value) || 1;
+  //   setResultCount(Math.max(1, Math.min(100, value)));
+  // };
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -238,7 +258,7 @@ const Main = () => {
                 <div className="toggle_slider"></div>
               </button>
             </div>
-            <div className="result_count_container">
+            {/* <div className="result_count_container">
               <label className="input_label">No of logs</label>
               <input
                 type="number"
@@ -249,7 +269,7 @@ const Main = () => {
                 max="100"
                 placeholder="10"
               />
-            </div>
+            </div> */}
           </div>
 
           {/* File Container */}
