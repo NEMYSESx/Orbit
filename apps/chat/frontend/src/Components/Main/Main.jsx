@@ -234,7 +234,7 @@ const Main = () => {
                         <p
                           dangerouslySetInnerHTML={{ __html: message.text }}
                         ></p>
-                        <div className="chat-utils">
+                        {<div className="chat-utils">
                           <Copy
                             size={18}
                             className="icon-btn"
@@ -255,7 +255,7 @@ const Main = () => {
                             onClick={() => regenerateResponse(lastUserInput)}
                             title="Regenerate"
                           />
-                        </div>
+                        </div>}
                       </div>
                     )}
                   </div>
