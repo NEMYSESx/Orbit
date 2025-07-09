@@ -5,6 +5,8 @@ import Card from "./Card";
 
 import { Link, useNavigate } from "react-router";
 import { Context } from "../../Context/Context";
+import { Copy, RefreshCw } from "lucide-react";
+
 
 const Main = () => {
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -15,12 +17,14 @@ const Main = () => {
 
   const [isListening, setIsListening] = useState(false);
   const [searchInLogs, setSearchInLogs] = useState(false);
+  const [resultCount, setResultCount] = useState(10);
   const [isToggling, setIsToggling] = useState(false);
   const [isIngesting, setIsIngesting] = useState(false);
   const recognitionRef = useRef(null);
+  const [lastUserInput, setLastUserInput] = useState("");
 
   const [file, setFile] = useState(null);
-  const { onSent, loading, setInput, input, conversation, allowSending, stopReply, stopIcon, isThinking } = useContext(Context);
+  const { onSent, loading, setInput, input, conversation, allowSending, stopReply, stopIcon, regenerateResponse, isThinking} = useContext(Context);
 
   const chatEndRef = useRef(null);
 
@@ -70,6 +74,7 @@ const Main = () => {
     }
   };
 
+  
   const toggleDarkMode = () => {
     setIsDarkMode((prevMode) => {
       const newMode = !prevMode;
@@ -86,7 +91,7 @@ const Main = () => {
 
   const handleSend = () => {
     if (input.trim() && allowSending) {
-      onSent(input, file, { searchInLogs });
+      onSent(input, file, { searchInLogs, resultCount });
       setFile(null);
       scrollToBottom();
     }
@@ -110,6 +115,7 @@ const Main = () => {
       }
     }, 1500);
   };
+
 
   const toggleFluentBit = async () => {
     if (isToggling) return;
@@ -158,6 +164,7 @@ const Main = () => {
     }
   };
 
+
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -203,20 +210,41 @@ const Main = () => {
               <div className={`result_title ${message.type}`}>
                 {message.type === "bot" ? (
                   <div className={`result_data`}>
-                    <div className="hello">
-                      {index === conversation.messages.length - 1 && isThinking ? (
-                        <div className="loader">
-                          <span></span>
-                          <span></span>
-                          <span></span>
-                        </div>
-                      ) : (
+                    {index === conversation.messages.length - 1 && isThinking ? (
+                      <div className="loader">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
+                    ) : (
+                      <div className="hello">
                         <p dangerouslySetInnerHTML={{ __html: message.text }}></p>
-                      )}
-                    </div>
+                        <div className="chat-utils">
+                          <Copy
+                            size={18}
+                            className="icon-btn"
+                            onClick={() => {
+                              const tempElement = document.createElement("div");
+                              tempElement.innerHTML = message.text;
+                              const plainText = tempElement.textContent || tempElement.innerText || "";
+                              navigator.clipboard.writeText(plainText);
+                            }}
+                            title="Copy"
+                          />
+                          <RefreshCw
+                            size={18}
+                            className="icon-btn"
+                            onClick={() => regenerateResponse(lastUserInput)}
+                            title="Regenerate"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <p>{message.text}</p>
+                  <div className="user_msg">
+                    <p>{message.text}</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -227,6 +255,7 @@ const Main = () => {
 
       <div className={`main_bottom ${file ? "main_bottom_with_file" : ""}`}>
         <div className="search_box">
+          {/* Search Options Header */}
           <div className="search_header">
             <div className="toggle_container">
               <span className="toggle_label">Search in Logs</span>
@@ -239,8 +268,21 @@ const Main = () => {
                 <div className="toggle_slider"></div>
               </button>
             </div>
+            {/* <div className="result_count_container">
+              <label className="input_label">No of logs</label>
+              <input
+                type="number"
+                className="result_count_input"
+                value={resultCount}
+                onChange={handleResultCountChange}
+                min="1"
+                max="100"
+                placeholder="10"
+              />
+            </div> */}
           </div>
 
+          {/* File Container */}
           {file && (
             <div className="file_container">
               <img className="new_file" src={assets.file} alt="File" />
@@ -249,6 +291,7 @@ const Main = () => {
             </div>
           )}
 
+          {/* Main Input Row */}
           <div className="input_row">
             <div className="main_input_container">
               <input
