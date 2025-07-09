@@ -226,7 +226,12 @@ body {
   align-items: center;
   gap: 5px;
   padding: 5px;
-  background: linear-gradient(135deg, rgb(250, 214, 147), rgb(171, 169, 169), rgb(143, 246, 143));
+  background: linear-gradient(
+    135deg,
+    rgb(250, 214, 147),
+    rgb(171, 169, 169),
+    rgb(143, 246, 143)
+  );
   border-radius: 9px;
   box-shadow: 0 10px 20px rgba(255, 255, 255, 0.2);
   background-size: 200% 200%;
@@ -670,7 +675,11 @@ body {
 .loader span {
   width: 10px;
   height: 10px;
-  background: linear-gradient(45deg, var(--loader-primary-color), var(--loader-secondary-color));
+  background: linear-gradient(
+    45deg,
+    var(--loader-primary-color),
+    var(--loader-secondary-color)
+  );
   border-radius: 50%;
   animation: bounce 1.5s infinite ease-in-out;
   box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
@@ -938,4 +947,21 @@ code {
   to {
     transform: rotate(360deg);
   }
+}
+
+.chat-utils {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.icon-btn {
+  cursor: pointer;
+  color: #ccc;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.icon-btn:hover {
+  color: #fff;
+  transform: scale(1.1);
 }

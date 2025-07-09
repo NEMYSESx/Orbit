@@ -3,8 +3,9 @@ import "./Main.css";
 import { assets } from "../../assets/assets";
 import Card from "./Card";
 
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import { Context } from "../../Context/Context";
+import { Copy, RefreshCw } from "lucide-react";
 
 const Main = () => {
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -15,16 +16,30 @@ const Main = () => {
 
   const [isListening, setIsListening] = useState(false);
   const [searchInLogs, setSearchInLogs] = useState(false);
+  const [resultCount, setResultCount] = useState(10);
   const [isToggling, setIsToggling] = useState(false);
   const [isIngesting, setIsIngesting] = useState(false);
   const recognitionRef = useRef(null);
+  const [lastUserInput, setLastUserInput] = useState("");
 
   const [file, setFile] = useState(null);
-  const { onSent, loading, setInput, input, conversation, allowSending, stopReply, stopIcon, isThinking } = useContext(Context);
+  const {
+    onSent,
+    loading,
+    setInput,
+    input,
+    conversation,
+    allowSending,
+    stopReply,
+    stopIcon,
+    regenerateResponse,
+    isThinking,
+  } = useContext(Context);
 
   const chatEndRef = useRef(null);
 
-  const scrollToBottom = () => chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = () =>
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
   useEffect(() => {
     if (isDarkMode) {
@@ -86,7 +101,7 @@ const Main = () => {
 
   const handleSend = () => {
     if (input.trim() && allowSending) {
-      onSent(input, file, { searchInLogs });
+      onSent(input, file, { searchInLogs, resultCount });
       setFile(null);
       scrollToBottom();
     }
@@ -133,8 +148,12 @@ const Main = () => {
       console.log(`Response status: ${response.status}`);
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
-        throw new Error(`HTTP error! status: ${response.status} - ${errorData.detail}`);
+        const errorData = await response
+          .json()
+          .catch(() => ({ detail: "Unknown error" }));
+        throw new Error(
+          `HTTP error! status: ${response.status} - ${errorData.detail}`
+        );
       }
 
       const result = await response.json();
@@ -203,20 +222,47 @@ const Main = () => {
               <div className={`result_title ${message.type}`}>
                 {message.type === "bot" ? (
                   <div className={`result_data`}>
-                    <div className="hello">
-                      {index === conversation.messages.length - 1 && isThinking ? (
-                        <div className="loader">
-                          <span></span>
-                          <span></span>
-                          <span></span>
+                    {index === conversation.messages.length - 1 &&
+                    isThinking ? (
+                      <div className="loader">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
+                    ) : (
+                      <div className="hello">
+                        <p
+                          dangerouslySetInnerHTML={{ __html: message.text }}
+                        ></p>
+                        <div className="chat-utils">
+                          <Copy
+                            size={18}
+                            className="icon-btn"
+                            onClick={() => {
+                              const tempElement = document.createElement("div");
+                              tempElement.innerHTML = message.text;
+                              const plainText =
+                                tempElement.textContent ||
+                                tempElement.innerText ||
+                                "";
+                              navigator.clipboard.writeText(plainText);
+                            }}
+                            title="Copy"
+                          />
+                          <RefreshCw
+                            size={18}
+                            className="icon-btn"
+                            onClick={() => regenerateResponse(lastUserInput)}
+                            title="Regenerate"
+                          />
                         </div>
-                      ) : (
-                        <p dangerouslySetInnerHTML={{ __html: message.text }}></p>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <p>{message.text}</p>
+                  <div className="user_msg">
+                    <p>{message.text}</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -227,11 +273,14 @@ const Main = () => {
 
       <div className={`main_bottom ${file ? "main_bottom_with_file" : ""}`}>
         <div className="search_box">
+          {/* Search Options Header */}
           <div className="search_header">
             <div className="toggle_container">
               <span className="toggle_label">Search in Logs</span>
               <button
-                className={`toggle_switch ${searchInLogs ? "active" : ""} ${isToggling ? "loading" : ""}`}
+                className={`toggle_switch ${searchInLogs ? "active" : ""} ${
+                  isToggling ? "loading" : ""
+                }`}
                 onClick={toggleFluentBit}
                 disabled={isToggling}
                 title={isToggling ? "Updating..." : "Toggle log search"}
@@ -239,16 +288,35 @@ const Main = () => {
                 <div className="toggle_slider"></div>
               </button>
             </div>
+            {/* <div className="result_count_container">
+              <label className="input_label">No of logs</label>
+              <input
+                type="number"
+                className="result_count_input"
+                value={resultCount}
+                onChange={handleResultCountChange}
+                min="1"
+                max="100"
+                placeholder="10"
+              />
+            </div> */}
           </div>
 
+          {/* File Container */}
           {file && (
             <div className="file_container">
               <img className="new_file" src={assets.file} alt="File" />
               <p className="file_name">{file.name}</p>
-              <img src={assets.cross} onClick={() => setFile(null)} alt="Remove file" style={{ cursor: "pointer" }} />
+              <img
+                src={assets.cross}
+                onClick={() => setFile(null)}
+                alt="Remove file"
+                style={{ cursor: "pointer" }}
+              />
             </div>
           )}
 
+          {/* Main Input Row */}
           <div className="input_row">
             <div className="main_input_container">
               <input
@@ -264,16 +332,30 @@ const Main = () => {
 
             <div className="action_buttons">
               <button
-                className={`icon_button mic_button ${isListening ? "listening" : ""}`}
+                className={`icon_button mic_button ${
+                  isListening ? "listening" : ""
+                }`}
                 onClick={isListening ? stopListening : startListening}
                 title={isListening ? "Stop Listening" : "Voice Input"}
                 disabled={loading}
               >
-                <img src={isListening ? assets.mic_active_icon : assets.mic_icon} className="utility_icon" alt="Microphone" />
+                <img
+                  src={isListening ? assets.mic_active_icon : assets.mic_icon}
+                  className="utility_icon"
+                  alt="Microphone"
+                />
               </button>
 
-              <Link className="icon_button file_button" to={"/upload"} title="upload file">
-                <img className="file_icon utility_icon" src={assets.add_file} alt="Upload file" />
+              <Link
+                className="icon_button file_button"
+                to={"/upload"}
+                title="upload file"
+              >
+                <img
+                  className="file_icon utility_icon"
+                  src={assets.add_file}
+                  alt="Upload file"
+                />
               </Link>
 
               <button
@@ -288,7 +370,11 @@ const Main = () => {
                 title={stopIcon ? "Stop" : "Send Message"}
                 disabled={loading && !stopIcon}
               >
-                <img src={stopIcon ? assets.stop_button : assets.send_icon} alt={stopIcon ? "Stop" : "Send"} className="utility_icon" />
+                <img
+                  src={stopIcon ? assets.stop_button : assets.send_icon}
+                  alt={stopIcon ? "Stop" : "Send"}
+                  className="utility_icon"
+                />
               </button>
             </div>
           </div>

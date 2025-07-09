@@ -3,6 +3,8 @@ import { marked } from "marked";
 
 export const Context = createContext();
 
+// const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
 const generateNewChat = async () => {
@@ -139,7 +141,7 @@ export const ContextProvider = (props) => {
       if (newChat) {
         setConversation(newChat);
         setActiveConversationId(newChat.sessionId);
-        setCurrentSessionId(null);
+        setCurrentSessionId(null); // Reset session ID for new chat
       }
     }
   };
@@ -169,10 +171,16 @@ export const ContextProvider = (props) => {
     const getCurrentConversation = async () => {
       try {
         stopReplyRef.current = true;
-        const response = await fetch(`${backendUrl}/conversation/active/${activeConversationId}`);
+        const response = await fetch(
+          `${backendUrl}/conversation/active/${activeConversationId}`
+        );
         if (response.ok) {
           const result = await response.json();
-          if (result && conversation && result.sessionId !== conversation.sessionId) {
+          if (
+            result &&
+            conversation &&
+            result.sessionId !== conversation.sessionId
+          ) {
             setConversation(result);
           }
         }
@@ -199,7 +207,7 @@ export const ContextProvider = (props) => {
     getSuggestions();
   }, []);
 
-  const onSent = async (prompt) => {
+  const onSent = async (prompt, isRegenerating = false) => {
     const userPrompt = prompt || input;
 
     setAllowSending(false);
@@ -210,18 +218,41 @@ export const ContextProvider = (props) => {
     setShowResult(true);
 
     const userMessage = { type: "user", text: userPrompt };
-    const botMessage = { type: "bot", text: "..." };
+    const botMessagePlaceholder = { type: "bot", text: "..." };
 
-    setConversation((prev) => ({
-      ...prev,
-      messages: [...(prev?.messages || []), userMessage, botMessage],
-    }));
+    setConversation((prev) => {
+      let updatedMessages;
+      if (isRegenerating) {
+        let found = false;
+        updatedMessages = [...prev.messages].map((msg) => {
+          if (!found && msg.type === "bot" && msg.text === "...") {
+            found = true;
+            return botMessagePlaceholder;
+          }
+          return msg;
+        });
+      } else {
+        updatedMessages = [
+          ...(prev.messages || []),
+          userMessage,
+          botMessagePlaceholder,
+        ];
+      }
+
+      return {
+        ...prev,
+        messages: updatedMessages,
+      };
+    });
 
     setInput("");
     console.log(currentSessionId);
 
     try {
-      const result = await handleRagQueryWithSession(userPrompt, currentSessionId);
+      const result = await handleRagQueryWithSession(
+        userPrompt,
+        currentSessionId
+      );
 
       setIsThinking(false);
 
@@ -278,17 +309,20 @@ export const ContextProvider = (props) => {
 
       async function saveToBackend() {
         try {
-          const response = await fetch(`${backendUrl}/conversation/${activeConversationId}`, {
-            method: "POST",
-            headers: {
-              "Content-type": "application/json",
-            },
-            body: JSON.stringify({
-              userMsg: userMessage,
-              botMsg: { type: "bot", text: marked(plainResponse) },
-              prompt: userPrompt,
-            }),
-          });
+          const response = await fetch(
+            `${backendUrl}/conversation/${activeConversationId}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-type": "application/json",
+              },
+              body: JSON.stringify({
+                userMsg: userMessage,
+                botMsg: { type: "bot", text: marked(plainResponse) },
+                prompt: userPrompt,
+              }),
+            }
+          );
           if (response.ok) {
             const result = await response.json();
             console.log("savedddddd", result);
@@ -347,6 +381,16 @@ export const ContextProvider = (props) => {
     });
   };
 
+  const regenerateResponse = (lastPrompt) => {
+    if (loading) return;
+    if (conversation.messages.length === 0) return;
+
+    stopReply();
+
+    // Call onSent with the last user input, indicating it's a regeneration
+    onSent(lastPrompt, true);
+  };
+
   return (
     <Context.Provider
       value={{
@@ -367,6 +411,7 @@ export const ContextProvider = (props) => {
         setUpdateSidebar,
         updateSidebar2,
         setUpdateSidebar2,
+        regenerateResponse,
         isThinking,
       }}
     >

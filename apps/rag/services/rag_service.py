@@ -90,7 +90,7 @@ class RAGService:
             contexts_text = ""
             for i, context in enumerate(contexts, 1):
                 if hasattr(context, 'text'):
-                    text_sample = str(context.text)[:500]  # Limit context size
+                    text_sample = str(context.text)  
                     contexts_text += f"Context {i}:\n{text_sample}...\n\n"
             
             context_section = ""
@@ -262,26 +262,25 @@ If CONFLICT is detected, identify which contexts conflict with each other.
         return is_relevant, conflict_response
     
     def generate_direct_answer(self, query: str, conversation_context: str = "") -> Tuple[str, str]:
-        """Generate direct answer with better error handling"""
         try:
             if not hasattr(self.search_service, 'gemini_client') or not self.search_service.gemini_client:
                 logger.error("Gemini client not available for direct answer")
                 return self._get_fallback_answer(), "Unable to generate answer"
             
             prompt = f"""
-You are having a conversation with a user. Answer their current question using the conversation history for context if needed otherwise answer solely from your intelligence.
+You are a helpful assistant with strong general technical knowledge.
 
-Current Question: "{query}"
-Previous conversations: "{conversation_context}"
+User's Question:
+"{query}"
 
-Instructions:
+Even if no context or conversation history is provided, you must still attempt to answer the question accurately from your own knowledge.
 - If the user asks about their previous question/query (using words like "previous", "earlier", "before", "last", "what did I ask", "my last question", etc.):
   * If there IS conversation history: Look at it and tell them specifically what they asked before
   * If there is NO conversation history: Tell them this is their first question in the conversation
-- If they reference something from our previous conversation, use the conversation history to provide context
-- Be conversational and natural in your response
-- If there's no relevant conversation history for their question, answer the question directly
-- Always prioritize answering based on the conversation context when the user is clearly referencing previous interactions
+Answer the question directly and clearly.
+
+Current Question: "{query}"
+Previous conversations: "{conversation_context}"
 
 Provide your response in this format:
 Answer: [Your detailed answer here]
