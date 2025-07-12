@@ -36,7 +36,6 @@ class SearchService:
         }
     
     def extract_filters(self, query: str) -> Dict[str, Any]:
-        """Extract simple filters from query using LLM"""
         prompt = f"""
 Extract search filters from this query for a system with logs and documents.
 

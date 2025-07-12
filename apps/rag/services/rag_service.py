@@ -267,31 +267,45 @@ If CONFLICT is detected, identify which contexts conflict with each other.
                 logger.error("Gemini client not available for direct answer")
                 return self._get_fallback_answer(), "Unable to generate answer"
             
+            previous_query_keywords = ["previous", "earlier", "before", "last", "what did I ask", "my last question", "my previous question"]
+            is_asking_about_previous = any(keyword in query.lower() for keyword in previous_query_keywords)
+            
+            if is_asking_about_previous:
+                if conversation_context:
+                    lines = conversation_context.strip().split('\n')
+                    last_query = ""
+                    for line in reversed(lines):
+                        if line.startswith('Q'):
+                            last_query = line.split(':', 1)[1].strip() if ':' in line else ""
+                            break
+                    
+                    if last_query:
+                        return f"Your previous question was: \"{last_query}\"", "Previous query information"
+                    else:
+                        return "I can see we've been talking, but I'm having trouble identifying your specific previous question.", "Previous query unclear"
+                else:
+                    return "This is actually your first question in our conversation.", "First question"
+            
             prompt = f"""
-You are a helpful assistant with strong general technical knowledge.
+    You are a helpful AI assistant with strong general knowledge.
 
-User's Question:
-"{query}"
+    User's Question: "{query}"
 
-Even if no context or conversation history is provided, you must still attempt to answer the question accurately from your own knowledge.
-- If the user asks about their previous question/query (using words like "previous", "earlier", "before", "last", "what did I ask", "my last question", etc.):
-  * If there IS conversation history: Look at it and tell them specifically what they asked before
-  * If there is NO conversation history: Tell them this is their first question in the conversation
-Answer the question directly and clearly.
+    Previous conversation context (for reference only): {conversation_context if conversation_context else "No previous conversation"}
 
-Current Question: "{query}"
-Previous conversations: "{conversation_context}"
+    Please answer the user's question directly and helpfully. Do not mention their previous questions unless they specifically ask about them.
 
-Provide your response in this format:
-Answer: [Your detailed answer here]
-Summary: [A brief 1-2 sentence summary of the answer]
-"""
+    Provide your response in this format:
+    Answer: [Your detailed answer here atleast 80-100 lines or more if needed]
+    Summary: [A brief 1-2 sentence summary of the answer]
+    """
             
             response = self.search_service.gemini_client.generate_text(prompt, temperature=0.7)
             response_text = self._extract_text_from_response(response)
             
             if response_text:
                 answer, summary = self._parse_answer_response(response_text)
+                logger.info(f"Direct answer is: {answer}")
                 return answer, summary
             else:
                 return self._get_fallback_answer(), "Unable to generate answer"
@@ -309,49 +323,59 @@ Summary: [A brief 1-2 sentence summary of the answer]
                 logger.error("Gemini client not available for context-based answer")
                 return self._get_fallback_answer(), "Unable to generate answer"
             
+            previous_query_keywords = ["previous", "earlier", "before", "last", "what did I ask", "my last question", "my previous question"]
+            is_asking_about_previous = any(keyword in query.lower() for keyword in previous_query_keywords)
+            
+            if is_asking_about_previous:
+                if conversation_context:
+                    lines = conversation_context.strip().split('\n')
+                    last_query = ""
+                    for line in reversed(lines):
+                        if line.startswith('Q'):
+                            last_query = line.split(':', 1)[1].strip() if ':' in line else ""
+                            break
+                    
+                    if last_query:
+                        return f"Your previous question was: \"{last_query}\"", "Previous query information"
+                    else:
+                        return "I can see we've been talking, but I'm having trouble identifying your specific previous question.", "Previous query unclear"
+                else:
+                    return "This is actually your first question in our conversation.", "First question"
+            
             contexts_text = ""
             for i, context in enumerate(contexts, 1):
                 if hasattr(context, 'text'):
-                    contexts_text += f"Context {i}:\n{str(context.text)[:1000]}\n\n"  
-            
-            context_section = ""
-            if conversation_context:
-                context_section = f"\nConversation History:\n{conversation_context}\n"
+                    contexts_text += f"Context {i}:\n{str(context.text)[:5000]}\n\n"  
             
             prompt = f"""
-You are an AI assistant with access to retrieved knowledge contexts and conversation history. Your primary task is to answer the user's query using the retrieved contexts while being aware of the ongoing conversation.
+    You are an AI assistant with access to retrieved knowledge contexts. Answer the user's query using the provided contexts.
 
-Current User Query:
-"{query}"
+    Current User Query: "{query}"
 
-Conversation History:
-{context_section}
+    Retrieved Knowledge Contexts:
+    {contexts_text}
 
-Retrieved Knowledge Contexts (from vector database):
-{contexts_text}
+    Conversation History (for reference only):
+    {conversation_context if conversation_context else "No previous conversation"}
 
-Guidelines:
-- PRIMARY PRIORITY: Use the retrieved knowledge contexts to answer the user's query. These contexts contain specific information relevant to their question.
-- SECONDARY: Use conversation history to understand context and maintain conversational flow.
-- If the user explicitly asks about their previous query (using exact phrases like "what did I ask before" or "my previous question"), then reference the conversation history.
-- For all other queries, focus on the retrieved contexts to provide substantive, informative answers.
-- Combine information from multiple contexts when relevant.
-- Acknowledge the conversation context naturally, but don't let it override the retrieved knowledge.
-- Be specific and detailed in your response using the retrieved contexts.
-- Don't mention "Context 1", "Context 2" - integrate the information naturally.
+    Guidelines:
+    - Use the retrieved contexts to answer the user's query comprehensively
+    - Do not mention their previous questions unless they specifically ask about them
+    - Combine information from multiple contexts when relevant
+    - Be specific and detailed using the retrieved knowledge
+    - Integrate the information naturally without mentioning "Context 1", "Context 2", etc.
 
-IMPORTANT: The retrieved contexts contain relevant information for this query. Use them to provide a comprehensive answer.
-
-Respond in the following format:
-Answer: [Your detailed, helpful response using the retrieved contexts]
-Summary: [A brief 1–2 sentence summary of your response]
-"""
+    Respond in the following format:
+    Answer: [Your detailed, helpful response using the retrieved contexts]
+    Summary: [A brief 1–2 sentence summary of your response]
+    """
             
             response = self.search_service.gemini_client.generate_text(prompt, temperature=0.3)
             response_text = self._extract_text_from_response(response)
             
             if response_text:
                 answer, summary = self._parse_answer_response(response_text)
+                print("The answer is ",answer)
                 return answer, summary
             else:
                 return self.generate_direct_answer(query, conversation_context)
@@ -377,7 +401,7 @@ Summary: [A brief 1–2 sentence summary of your response]
                 answer = response_text.strip()
             
             if not summary:
-                summary = answer[:100] + "..." if len(answer) > 100 else answer
+                summary = answer[:500] + "..." if len(answer) > 100 else answer
             
             return answer, summary
             
@@ -525,6 +549,7 @@ Summary: [A brief 1–2 sentence summary of your response]
 
             logger.info("Step 4: Generating context-based answer...")
             answer, summary = self.generate_context_based_answer(user_query, resolved_contexts, conversation_context)
+            print("The answer is",answer)
             
             try:
                 self.conversation_manager.add_message(session_id, enhanced_query, answer, metadata, summary)
@@ -535,7 +560,7 @@ Summary: [A brief 1–2 sentence summary of your response]
             for context in resolved_contexts:
                 try:
                     context_info = {
-                        "text": str(getattr(context, 'text', ''))[:200] + "...",
+                        "text": str(getattr(context, 'text', ''))[:1000] + "...",
                         "score": getattr(context, 'score', 0.0),
                         "source_collection": getattr(context, 'source_collection', 'Unknown')
                     }
@@ -554,7 +579,7 @@ Summary: [A brief 1–2 sentence summary of your response]
                     continue
 
             logger.info("RAG process completed successfully")
-
+            print("The response is",answer)
             return RAGResponse(
                 answer=answer,
                 used_context=True,
