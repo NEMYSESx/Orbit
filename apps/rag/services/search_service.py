@@ -125,41 +125,30 @@ JSON format:
         filters: Dict[str, Any], 
         limit: int
     ) -> List[SearchResult]:
+        # valid_filters = self.filter_for_collection(filters, collection_name)
+        # print(f"Filtered filters for {collection_name}: {valid_filters}")
         
-        valid_filters = self.filter_for_collection(filters, collection_name)
-        print(f"Filtered filters for {collection_name}: {valid_filters}")
+        # filter_conditions = {}
+        # for key, value in valid_filters.items():
+        #     if key == "time_range":
+        #         time_filter = self.build_time_filter(value)
+        #         if time_filter:
+        #             filter_conditions["timestamp"] = time_filter
+        #     else:
+        #         filter_conditions[key] = value
         
-        filter_conditions = {}
-        for key, value in valid_filters.items():
-            if key == "time_range":
-                time_filter = self.build_time_filter(value)
-                if time_filter:
-                    filter_conditions["timestamp"] = time_filter
-            else:
-                filter_conditions[key] = value
-        
+        # Disable all filtering for now
+        filter_conditions = None
         try:
-            if filter_conditions:
-                search_results = self.qdrant_client.search(
-                    collection_name=collection_name,
-                    query_vector=query_vector,
-                    limit=limit,
-                    filter_conditions=filter_conditions,
-                    hnsw_ef=256,
-                    exact=False,
-                    indexed_only=True
-                )
-            else:
-                search_results = self.qdrant_client.search(
-                    collection_name=collection_name,
-                    query_vector=query_vector,
-                    limit=limit,
-                    filter_conditions=None,
-                    hnsw_ef=256,
-                    exact=False,
-                    indexed_only=True
-                )
-            
+            search_results = self.qdrant_client.search(
+                collection_name=collection_name,
+                query_vector=query_vector,
+                limit=limit,
+                filter_conditions=filter_conditions,
+                hnsw_ef=256,
+                exact=False,
+                indexed_only=True
+            )
             results = []
             for result in search_results:
                 if 'message' in result.payload:  
@@ -179,7 +168,6 @@ JSON format:
                 ))
             
             return results
-            
         except Exception as e:
             print(f"Search error in {collection_name}: {e}")
             try:
@@ -212,7 +200,6 @@ JSON format:
                     ))
                 
                 return results
-                
             except Exception as e:
                 print(f"Fallback search failed for {collection_name}: {e}")
                 return []

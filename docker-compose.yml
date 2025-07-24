@@ -99,7 +99,7 @@ services:
       - CREATE_COLLECTIONS_DYNAMICALLY=true
       - EMBEDDING_MODEL=models/text-embedding-004
       - EMBEDDING_DIMENSIONALITY=768
-      - LLM_MODEL=gemini-2.0-flash
+      - LLM_MODEL=gemini-2.5-flash-lite
       - GEMINI_API_KEY=AIzaSyByCUsepBOtNC4xt1T30KBZKDrDScQArHo
       - CONNECTION_TIMEOUT=15
       - REDIS_HOST=redis
